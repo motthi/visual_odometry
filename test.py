@@ -83,17 +83,18 @@ def draw_vo_results(estimated_poses, real_poses):
     ax.set_ylabel("y")
     # ax.set_xlim(4, 8)
     # ax.set_ylim(4, 8)
-    # ax.set_zlim(0, 1)
+    ax.set_zlim(0, 1)
     fig.savefig("vo_results.png", dpi=300, bbox_inches='tight', pad_inches=0)
     plt.show()
 
 
 if __name__ == "__main__":
     # plot_trajectory("rover_pose.npz")
-    # data_dir = "./datasets/feature_less/"
-    data_dir = "./datasets/feature_rich_2/"
+    data_dir = "./datasets/feature_less/"
+    # data_dir = "./datasets/feature_rich/"
     lcam_params, rcam_params = camera_params()
-    l_imgs, r_imgs = load_images(f"{data_dir}", 30)
+    img_len = 29
+    l_imgs, r_imgs = load_images(f"{data_dir}", img_len)
 
     # vo = MonocularVisualOdometry(lcam_params, l_imgs)
     vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs)
@@ -104,7 +105,7 @@ if __name__ == "__main__":
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
     poses = [init_pose]
 
-    for i in range(30):
+    for i in tqdm(range(img_len)):
         if i < 1:
             cur_pose = init_pose
         else:

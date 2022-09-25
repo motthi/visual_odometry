@@ -31,6 +31,8 @@ class VisualOdometry():
 class MonocularVisualOdometry(VisualOdometry):
     def __init__(self, left_camera_params, left_imgs) -> None:
         super().__init__(left_camera_params, left_imgs)
+        self.K_l = self.intrinsic_l
+        # self.P_l = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
 
         self.orb = cv2.ORB_create(3000)
         FLANN_INDEX_LSH = 6
