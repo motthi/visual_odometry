@@ -3,6 +3,7 @@ import cv2
 import quaternion
 import numpy as np
 from scipy.optimize import least_squares
+import matplotlib.pyplot as plt
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -158,7 +159,11 @@ class MonocularVisualOdometry(VisualOdometry):
 
 
 class StereoVisualOdometry(VisualOdometry):
-    def __init__(self, left_camera_params, right_camera_params, left_imgs, right_imgs) -> None:
+    def __init__(
+        self,
+        left_camera_params, right_camera_params, left_imgs, right_imgs,
+        num_disp: int = 300, winSize: tuple = (15, 15)
+    ) -> None:
         super().__init__(left_camera_params, left_imgs)
 
         self.intrinsic_r = right_camera_params['intrinsic']
@@ -167,23 +172,40 @@ class StereoVisualOdometry(VisualOdometry):
         self.K_r = self.P_r[0:3, 0:3]
         self.right_imgs = right_imgs
 
-        self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=300, blockSize=10)
-        self.fastFeatures = cv2.FastFeatureDetector_create()
-        self.lk_params = dict(winSize=(15, 15), flags=cv2.MOTION_AFFINE, maxLevel=3, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
+        self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
+        # self.detector = cv2.FastFeatureDetector_create()
+        # self.detector = cv2.ORB_create()
+        self.detector = cv2.AKAZE_create()
+        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+
+        self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
         l1_img, r1_img = self.load_img(self.cnt)
         self.disparities = [np.divide(self.disparity.compute(l1_img, r1_img).astype(np.float32), 16)]
         self.cur_left_kpts = []
         self.cur_right_kpts = []
         self.prev_left_kpts = []
         self.prev_right_kpts = []
+        self.max_error = 6
 
     def estimate_pose(self):
         l1_img, r1_img = self.load_img(self.cnt)
         l2_img, r2_img = self.load_img(self.cnt + 1)
-        kp1_l = self.get_keypoints(l1_img, 10, 10)
-        tp1_l, tp2_l = self.track_keypoints(l1_img, l2_img, kp1_l)
         self.disparities.append(np.divide(self.disparity.compute(l2_img, r2_img).astype(np.float32), 16))
+        # tp1_l, tp2_l = self.detectAndTrackFeaturesByOptFlow(l1_img, l2_img)
+        tp1_l, tp2_l = self.detectAndTrackFeatures(l1_img, l2_img)
+        if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
+            return None
         tp1_l, tp1_r, tp2_l, tp2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
+        # for q1, q2 in zip(tp1_l, tp2_l):
+        #     cv2.line(l1_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
+        # cv2.imwrite(f'./keypoints_{self.cnt:05d}.png', l1_img)
+
+        # for kp in kp1_l:
+        #     cv2.circle(l1_img, (int(kp.pt[0]), int(kp.pt[1])), 2, (0, 0, 255), 1)
+        # fig, ax = plt.subplots()
+        # ax.imshow(self.disparities[-1])
+        # fig.savefig(f'./disparity_{self.cnt:05d}.png', dpi=300, bbox_inches='tight', pad_inches=0)
+        # plt.cla()
         Q1, Q2 = self.calc_3d(tp1_l, tp1_r, tp2_l, tp2_r)
         transformation_matrix = self.estimate_transform_matrix(tp1_l, tp2_l, Q1, Q2)
         self.prev_left_kpts.append(tp1_l)
@@ -193,22 +215,50 @@ class StereoVisualOdometry(VisualOdometry):
         self.cnt += 1
         return transformation_matrix
 
+    def detectAndTrackFeaturesByOptFlow(self, img1: np.ndarray, img2: np.ndarray):
+        kp1_l = self.get_keypoints(img1, 10, 10)
+        tp1_l, tp2_l = self.track_keypoints(img1, img2, kp1_l, 6)
+        return tp1_l, tp2_l
+
+    def detectAndTrackFeatures(self, img1: np.ndarray, img2: np.ndarray):
+        kp1, desc1 = self.detector.detectAndCompute(img1, None)
+        kp2, desc2 = self.detector.detectAndCompute(img2, None)
+        matches = self.bf.match(desc1, desc2)
+
+        tp1 = []
+        tp2 = []
+        matches = sorted(matches, key=lambda x: x.distance)
+        for i in range(min(50, len(matches))):
+            tp1.append(kp1[matches[i].queryIdx].pt)
+            tp2.append(kp2[matches[i].trainIdx].pt)
+        tp1 = np.array(tp1)
+        tp2 = np.array(tp2)
+        # tp1 = np.array([kp1[m.queryIdx].pt for m in matches])
+        # tp2 = np.array([kp2[m.trainIdx].pt for m in matches])
+        # dst = cv2.drawMatches(img1, kp1, img2, kp2, matches, None)
+        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", dst)
+        # img = np.hstack((img1, img2))
+        # for p1, p2 in zip(tp1, tp2):
+        #     cv2.line(img, (int(p1[0]), int(p1[1])), (int(p2[0] + img1.shape[1]), int(p2[1])), (0, 255, 0), 1)
+        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", img)
+        return tp1, tp2
+
     def get_keypoints(self, img: np.ndarray, tile_h: int, tile_w: int):
         def get_kps(x, y):
             impatch = img[y:y + tile_h, x:x + tile_w]   # Get the image tile
-            keypoints = self.fastFeatures.detect(impatch)  # Detect keypoints
+            keypoints = self.detector.detect(impatch)  # Detect keypoints
             for pt in keypoints:    # Correct the coordinate for the point
                 pt.pt = (pt.pt[0] + x, pt.pt[1] + y)
             if len(keypoints) > 10:  # Get the 10 best keypoints
                 keypoints = sorted(keypoints, key=lambda x: -x.response)
                 return keypoints[:10]
             return keypoints
-        h, w, *_ = img.shape  # Get the image height and width
+        h, w, _ = img.shape  # Get the image height and width
         kp_list = [get_kps(x, y) for y in range(0, h, tile_h) for x in range(0, w, tile_w)]  # Get the keypoints for each of the tiles
         kp_list_flatten = np.concatenate(kp_list)   # Flatten the keypoint list
         return kp_list_flatten
 
-    def track_keypoints(self, img1: np.ndarray, img2: np.ndarray, kp1, max_error=6):
+    def track_keypoints(self, img1: np.ndarray, img2: np.ndarray, kp1, max_error=10):
         trackpoints1 = np.expand_dims(cv2.KeyPoint_convert(kp1), axis=1)
         trackpoints2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, trackpoints1, None, **self.lk_params)  # Use optical flow to find tracked counterparts
         trackable = st.astype(bool)  # Convert the status vector to boolean so we can use it as a mask
@@ -235,11 +285,8 @@ class StereoVisualOdometry(VisualOdometry):
         disp1, mask1 = get_idxs(q1, disp1)
         disp2, mask2 = get_idxs(q2, disp2)
 
-        # Combine the masks
-        in_bounds = np.logical_and(mask1, mask2)
-
-        # Get the feature points and disparity's there was in bounds
-        q1_l, q2_l, disp1, disp2 = q1[in_bounds], q2[in_bounds], disp1[in_bounds], disp2[in_bounds]
+        in_bounds = np.logical_and(mask1, mask2)    # Combine the masks
+        q1_l, q2_l, disp1, disp2 = q1[in_bounds], q2[in_bounds], disp1[in_bounds], disp2[in_bounds]  # Get the feature points and disparity's there was in bounds
 
         # Calculate the right feature points
         q1_r, q2_r = np.copy(q1_l), np.copy(q2_l)
@@ -319,3 +366,13 @@ class StereoVisualOdometry(VisualOdometry):
         l_img = self.left_imgs[i]
         r_img = self.right_imgs[i]
         return l_img, r_img
+
+    def draw_kpts(self, i: int, base_src:str="./image"):
+        l_img, r_img = self.load_img(i)
+        q2_l = self.cur_left_kpts[i]
+        q2_r = self.cur_right_kpts[i]
+        q1_l = self.prev_left_kpts[i]
+        q1_r = self.prev_right_kpts[i]
+        for q1, q2 in zip(q1_l, q2_l):
+            cv2.line(l_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
+        cv2.imwrite(f'./{base_src}{i}.png', l_img)
