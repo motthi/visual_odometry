@@ -1,6 +1,7 @@
 from __future__ import annotations
 import cv2
 import quaternion
+import warnings
 import numpy as np
 from scipy.optimize import least_squares
 import matplotlib.pyplot as plt
@@ -186,6 +187,7 @@ class StereoVisualOdometry(VisualOdometry):
         self.prev_left_kpts = []
         self.prev_right_kpts = []
         self.max_error = 6
+        self.num_max_features = 100
 
     def estimate_pose(self):
         l1_img, r1_img = self.load_img(self.cnt)
@@ -194,8 +196,23 @@ class StereoVisualOdometry(VisualOdometry):
         # tp1_l, tp2_l = self.detectAndTrackFeaturesByOptFlow(l1_img, l2_img)
         tp1_l, tp2_l = self.detectAndTrackFeatures(l1_img, l2_img)
         if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
+            warnings.warn("Cannot track features")
+            self.prev_left_kpts.append(tp1_l)
+            self.prev_right_kpts.append(tp1_r)
+            self.cur_left_kpts.append(tp2_l)
+            self.cur_right_kpts.append(tp2_r)
+            self.cnt += 1
             return None
         tp1_l, tp1_r, tp2_l, tp2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
+        if len(tp1_l) == 0 or len(tp2_l) == 0 or len(tp1_r) == 0 or len(tp2_r) == 0:
+            warnings.warn("Cannot find depth-available features")
+            self.prev_left_kpts.append(tp1_l)
+            self.prev_right_kpts.append(tp1_r)
+            self.cur_left_kpts.append(tp2_l)
+            self.cur_right_kpts.append(tp2_r)
+            self.cnt += 1
+            return None
+
         # for q1, q2 in zip(tp1_l, tp2_l):
         #     cv2.line(l1_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
         # cv2.imwrite(f'./keypoints_{self.cnt:05d}.png', l1_img)
@@ -228,11 +245,19 @@ class StereoVisualOdometry(VisualOdometry):
         tp1 = []
         tp2 = []
         matches = sorted(matches, key=lambda x: x.distance)
-        for i in range(min(50, len(matches))):
+        for i in range(min(self.num_max_features, len(matches))):
             tp1.append(kp1[matches[i].queryIdx].pt)
             tp2.append(kp2[matches[i].trainIdx].pt)
         tp1 = np.array(tp1)
         tp2 = np.array(tp2)
+
+        h, w, _ = img1.shape
+        mask1 = np.where(np.logical_and(tp1[:, 1] < h - 80, tp1[:, 0] < w), True, False)
+        tp1 = tp1[mask1]
+        tp2 = tp2[mask1]
+        mask2 = np.where(np.logical_and(tp2[:, 1] < h - 80, tp2[:, 0] < w), True, False)
+        tp1 = tp1[mask2]
+        tp2 = tp2[mask2]
         # tp1 = np.array([kp1[m.queryIdx].pt for m in matches])
         # tp2 = np.array([kp2[m.trainIdx].pt for m in matches])
         # dst = cv2.drawMatches(img1, kp1, img2, kp2, matches, None)
@@ -246,34 +271,35 @@ class StereoVisualOdometry(VisualOdometry):
     def get_keypoints(self, img: np.ndarray, tile_h: int, tile_w: int):
         def get_kps(x, y):
             impatch = img[y:y + tile_h, x:x + tile_w]   # Get the image tile
-            keypoints = self.detector.detect(impatch)  # Detect keypoints
-            for pt in keypoints:    # Correct the coordinate for the point
+            kpts = self.detector.detect(impatch)  # Detect keypoints
+            for pt in kpts:    # Correct the coordinate for the point
                 pt.pt = (pt.pt[0] + x, pt.pt[1] + y)
-            if len(keypoints) > 10:  # Get the 10 best keypoints
-                keypoints = sorted(keypoints, key=lambda x: -x.response)
-                return keypoints[:10]
-            return keypoints
-        h, w, _ = img.shape  # Get the image height and width
+            if len(kpts) > 10:  # Get the 10 best keypoints
+                kpts = sorted(kpts, key=lambda x: -x.response)
+                return kpts[:10]
+            return kpts
+        h, w, _ = img.shape
         kp_list = [get_kps(x, y) for y in range(0, h, tile_h) for x in range(0, w, tile_w)]  # Get the keypoints for each of the tiles
         kp_list_flatten = np.concatenate(kp_list)   # Flatten the keypoint list
         return kp_list_flatten
 
     def track_keypoints(self, img1: np.ndarray, img2: np.ndarray, kp1, max_error=10):
-        trackpoints1 = np.expand_dims(cv2.KeyPoint_convert(kp1), axis=1)
-        trackpoints2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, trackpoints1, None, **self.lk_params)  # Use optical flow to find tracked counterparts
+        tp1 = np.expand_dims(cv2.KeyPoint_convert(kp1), axis=1)
+        tp2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, tp1, None, **self.lk_params)  # Use optical flow to find tracked counterparts
         trackable = st.astype(bool)  # Convert the status vector to boolean so we can use it as a mask
         under_thresh = np.where(err[trackable] < max_error, True, False)  # Create a maks there selects the keypoints there was trackable and under the max error
 
         # Use the mask to select the keypoints
-        trackpoints1 = trackpoints1[trackable][under_thresh]
-        trackpoints2 = np.around(trackpoints2[trackable][under_thresh])
+        tp1 = tp1[trackable][under_thresh]
+        tp2 = np.around(tp2[trackable][under_thresh])
 
         # Remove the keypoints there is outside the image
         h, w, _ = img1.shape
-        in_bounds = np.where(np.logical_and(trackpoints2[:, 1] < h, trackpoints2[:, 0] < w), True, False)
-        trackpoints1 = trackpoints1[in_bounds]
-        trackpoints2 = trackpoints2[in_bounds]
-        return trackpoints1, trackpoints2
+        in_bounds = np.where(np.logical_and(tp2[:, 1] < h, tp2[:, 0] < w), True, False)
+        in_bounds = np.where(np.logical_and(tp2[:, 1] < h - 80, tp2[:, 0] < w), True, False)
+        tp1 = tp1[in_bounds]
+        tp2 = tp2[in_bounds]
+        return tp1, tp2
 
     def calculate_right_qs(self, q1, q2, disp1, disp2, min_disp=10.0, max_disp=512.0):
         def get_idxs(q: np.ndarray, disp):
@@ -367,7 +393,7 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[i]
         return l_img, r_img
 
-    def draw_kpts(self, i: int, base_src:str="./image"):
+    def draw_kpts(self, i: int, base_src: str = "./kpts"):
         l_img, r_img = self.load_img(i)
         q2_l = self.cur_left_kpts[i]
         q2_r = self.cur_right_kpts[i]
@@ -375,4 +401,15 @@ class StereoVisualOdometry(VisualOdometry):
         q1_r = self.prev_right_kpts[i]
         for q1, q2 in zip(q1_l, q2_l):
             cv2.line(l_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
-        cv2.imwrite(f'./{base_src}{i}.png', l_img)
+        cv2.imwrite(f'./{base_src}{i:04d}.png', l_img)
+
+    def draw_disp(self, i: int, base_src: str = "./disps"):
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        im = ax.imshow(self.disparities[i] / 16)
+        ax_c = fig.colorbar(im)
+        ax_c.set_label("Disparity", fontsize=10)
+        ax.axes.xaxis.set_visible(False)
+        ax.axes.yaxis.set_visible(False)
+        fig.savefig(f'./{base_src}{i:04d}.png', bbox_inches='tight', pad_inches=0.1, dpi=300)
+        plt.close()
