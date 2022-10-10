@@ -2,7 +2,6 @@ import cv2
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
-from soupsieve import match
 from tqdm import tqdm
 
 if __name__ == "__main__":
