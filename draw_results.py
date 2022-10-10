@@ -2,6 +2,7 @@ import cv2
 import copy
 import numpy as np
 import matplotlib.pyplot as plt
+from soupsieve import match
 from tqdm import tqdm
 
 if __name__ == "__main__":
@@ -15,25 +16,22 @@ if __name__ == "__main__":
         descs = data['descs']
         disp = data['disp']
         matches = [cv2.DMatch(_queryIdx=int(m[0]), _trainIdx=int(m[1]), _imgIdx=int(m[2]), _distance=m[3]) for m in data['matches']]
-        prev_kpts = [cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in data["matched_prev_kpts"]]
-        curr_kpts = [cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in data["matched_curr_kpts"]]
+        prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in data["matched_prev_kpts"]])
+        curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in data["matched_curr_kpts"]])
 
         # All detected keypoints
         kpt_img = copy.copy(img)
-
         cv2.drawKeypoints(img, kpts, kpt_img, color=(0, 255, 0), flags=4)
         cv2.imwrite(f"{data_dir}kpts/{i:04d}.png", kpt_img)
 
         # Matchd keypoints
-        img = cv2.imread(f"{data_dir}left/{i:04d}.png")
+        match_img = cv2.imread(f"{data_dir}left/{i:04d}.png")
         for prev_kpt, curr_kpt in zip(prev_kpts, curr_kpts):
-            cv2.line(img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), (0, 255, 0), 2)
-            cv2.circle(img, (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), 1, (0, 0, 255), 3)
-            cv2.circle(img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), 1, (255, 0, 0), 3)
-        cv2.imwrite(f"{data_dir}matched_kpts/{i:04d}.png", img)
-
-        # match_img = cv2.drawMatches(prev_img, prev_kpts, img, curr_kpts, matches, None, flags=2)  # Bug in OpenCV?
-        # cv2.imwrite(f"{data_dir}matched_kpts/{i:04d}.png", match_img)
+            cv2.line(match_img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), (0, 255, 0), 2)
+            cv2.circle(match_img, (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), 1, (0, 0, 255), 3)
+            cv2.circle(match_img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), 1, (255, 0, 0), 3)
+        # match_img = cv2.drawMatches(prev_img, prev_kpts, img, curr_kpts, matches, None, flags=2)
+        cv2.imwrite(f"{data_dir}matched_kpts/{i:04d}.png", match_img)
 
         # Disparities
         fig, ax = plt.subplots()

@@ -174,7 +174,6 @@ class StereoVisualOdometry(VisualOdometry):
         self.right_imgs = right_imgs
 
         self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
-        # self.detector = cv2.FastFeatureDetector_create()
         # self.detector = cv2.ORB_create()
         self.detector = cv2.AKAZE_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
@@ -192,34 +191,29 @@ class StereoVisualOdometry(VisualOdometry):
         self.matched_curr_kpts = [None]
 
     def estimate_pose(self):
+        # Load images
         left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
+
+        # Calculate disparity
         self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
-        # tp1_l, tp2_l = self.detectAndTrackFeaturesByOptFlow(l1_img, l2_img)
-        tp1_l, tp2_l = self.detectAndTrackFeatures(self.cnt, left_curr_img)
+
+        # Detect and track keypoints
+        tp1_l, tp2_l, matches = self.detectAndTrackFeatures(self.cnt, left_curr_img)
         if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
             return None
-        tp1_l, tp2_l, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
-        # for q1, q2 in zip(tp1_l, tp2_l):
-        #     cv2.line(l1_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
-        # cv2.imwrite(f'./keypoints_{self.cnt:05d}.png', l1_img)
 
-        # for kp in kp1_l:
-        #     cv2.circle(l1_img, (int(kp.pt[0]), int(kp.pt[1])), 2, (0, 0, 255), 1)
-        # fig, ax = plt.subplots()
-        # ax.imshow(self.disparities[-1])
-        # fig.savefig(f'./disparity_{self.cnt:05d}.png', dpi=300, bbox_inches='tight', pad_inches=0)
-        # plt.cla()
+        # Find the corresponding points in the right image
+        tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1], matches)
+
+        # Calculate essential matrix and the correct pose
         Q1, Q2 = self.calc_3d(pt1_l, pt1_r, pt2_l, pt2_r)
         transformation_matrix = self.estimate_transform_matrix(pt1_l, pt2_l, Q1, Q2)
+
         self.matched_prev_kpts.append(tp1_l)
         self.matched_curr_kpts.append(tp2_l)
+        self.matches.append(matches)
         self.cnt += 1
         return transformation_matrix
-
-    def detectAndTrackFeaturesByOptFlow(self, img1: np.ndarray, img2: np.ndarray):
-        kp1_l = self.get_keypoints(img1, 10, 10)
-        tp1_l, tp2_l = self.track_keypoints(img1, img2, kp1_l, 6)
-        return tp1_l, tp2_l
 
     def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray):
         prev_kpts = self.left_kpts[i]
@@ -232,74 +226,43 @@ class StereoVisualOdometry(VisualOdometry):
         tp1 = []
         tp2 = []
         matches = sorted(matches, key=lambda x: x.distance)
+        new_matches = []
         for i in range(min(50, len(matches))):
             tp1.append(prev_kpts[matches[i].queryIdx])
             tp2.append(curr_kpts[matches[i].trainIdx])
-        self.matches.append(matches[:i + 1])
-        # tp1 = np.array([kp1[m.queryIdx].pt for m in matches])
-        # tp2 = np.array([kp2[m.trainIdx].pt for m in matches])
-        # dst = cv2.drawMatches(img1, kp1, img2, kp2, matches, None)
-        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", dst)
-        # img = np.hstack((img1, img2))
-        # for p1, p2 in zip(tp1, tp2):
-        #     cv2.line(img, (int(p1[0]), int(p1[1])), (int(p2[0] + img1.shape[1]), int(p2[1])), (0, 255, 0), 1)
-        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", img)
-        return tp1, tp2
+            new_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+        return tp1, tp2, new_matches
 
-    def get_keypoints(self, img: np.ndarray, tile_h: int, tile_w: int):
-        def get_kps(x, y):
-            impatch = img[y:y + tile_h, x:x + tile_w]   # Get the image tile
-            keypoints = self.detector.detect(impatch)  # Detect keypoints
-            for pt in keypoints:    # Correct the coordinate for the point
-                pt.pt = (pt.pt[0] + x, pt.pt[1] + y)
-            if len(keypoints) > 10:  # Get the 10 best keypoints
-                keypoints = sorted(keypoints, key=lambda x: -x.response)
-                return keypoints[:10]
-            return keypoints
-        h, w, _ = img.shape  # Get the image height and width
-        kp_list = [get_kps(x, y) for y in range(0, h, tile_h) for x in range(0, w, tile_w)]  # Get the keypoints for each of the tiles
-        kp_list_flatten = np.concatenate(kp_list)   # Flatten the keypoint list
-        return kp_list_flatten
-
-    def track_keypoints(self, img1: np.ndarray, img2: np.ndarray, kp1, max_error=10):
-        trackpoints1 = np.expand_dims(cv2.KeyPoint_convert(kp1), axis=1)
-        trackpoints2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, trackpoints1, None, **self.lk_params)  # Use optical flow to find tracked counterparts
-        trackable = st.astype(bool)  # Convert the status vector to boolean so we can use it as a mask
-        under_thresh = np.where(err[trackable] < max_error, True, False)  # Create a maks there selects the keypoints there was trackable and under the max error
-
-        # Use the mask to select the keypoints
-        trackpoints1 = trackpoints1[trackable][under_thresh]
-        trackpoints2 = np.around(trackpoints2[trackable][under_thresh])
-
-        # Remove the keypoints there is outside the image
-        h, w, _ = img1.shape
-        in_bounds = np.where(np.logical_and(trackpoints2[:, 1] < h, trackpoints2[:, 0] < w), True, False)
-        trackpoints1 = trackpoints1[in_bounds]
-        trackpoints2 = trackpoints2[in_bounds]
-        return trackpoints1, trackpoints2
-
-    def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disp1, disp2, min_disp=10.0, max_disp=512.0):
-        def get_idxs(q: cv2.KeyPoint, disp):
+    def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disps1:np.ndarray, disps2:np.ndarray, matches:list[cv2.DMatch], min_disp:float=10.0, max_disp:float=512.0):
+        def get_idxs(q: list, disp):
             q_pts = np.array([q_.pt for q_ in q])
             q_idx = q_pts.astype(int)
             disp = disp.T[q_idx[:, 0], q_idx[:, 1]]
             return disp, np.where(np.logical_and(min_disp < disp, disp < max_disp), True, False)
 
         # Get the disparity's for the feature points and mask for min_disp & max_disp
-        disp1, mask1 = get_idxs(q1, disp1)
-        disp2, mask2 = get_idxs(q2, disp2)
+        disps1, mask1 = get_idxs(q1, disps1)
+        disps2, mask2 = get_idxs(q2, disps2)
 
-        in_bounds = np.logical_and(mask1, mask2)    # Combine the masks
-        kpt1_l, kpt2_l, disp1, disp2 = np.array(q1)[in_bounds], np.array(q2)[in_bounds], disp1[in_bounds], disp2[in_bounds]  # Get the feature points and disparity's there was in bounds
-        self.matches[-1] = list(np.array(self.matches[-1])[in_bounds])  # Update the matches
+        masks = np.logical_and(mask1, mask2)    # Combine the masks
+        kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []
+        mask_cnt = 0
+        for mask, kpt1, kpt2, disp1, disp2, match in zip(masks, q1, q2, disps1, disps2, matches):
+            if mask:
+                kpt1_l.append(kpt1)
+                kpt2_l.append(kpt2)
+                disps1_masked.append(disp1)
+                disps2_masked.append(disp2)
+                matches_masked.append(cv2.DMatch(mask_cnt, mask_cnt, match.imgIdx, match.distance))
+                mask_cnt += 1
         q1_l = np.array([q.pt for q in kpt1_l])
         q2_l = np.array([q.pt for q in kpt2_l])
 
         # Calculate the right feature points
         q1_r, q2_r = np.copy(q1_l), np.copy(q2_l)
-        q1_r[:, 0] -= disp1
-        q2_r[:, 0] -= disp2
-        return list(kpt1_l), list(kpt2_l), q1_l, q1_r, q2_l, q2_r
+        q1_r[:, 0] -= disps1_masked
+        q2_r[:, 0] -= disps2_masked
+        return list(kpt1_l), list(kpt2_l), matches_masked, q1_l, q1_r, q2_l, q2_r
 
     def estimate_transform_matrix(self, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray, max_iter: int = 100):
         early_termination_threshold = 5
