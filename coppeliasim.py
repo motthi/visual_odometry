@@ -84,8 +84,8 @@ def draw_vo_results(estimated_poses, real_poses, real_img_poses, save_src: str =
 if __name__ == "__main__":
     # data_dir = "./datasets/feature_less/"
     # data_dir = "./datasets/feature_rich_2/"
+    data_dir = "./datasets/feature_less_rock/"
     img_len = 43
-    data_dir = "./datasets/feature_less_rock_05/"
     lcam_params, rcam_params = camera_params()
     l_imgs, r_imgs = load_images(f"{data_dir}", img_len)
 
@@ -109,9 +109,9 @@ if __name__ == "__main__":
             cur_pose = np.matmul(cur_pose, transf)
             poses.append(cur_pose)
 
-    # Draw keypoints
-    for i in range(img_len - 1):
-        vo.draw_kpts(i, f"{data_dir}/kpts/{i:04d}.png")
+    # Save results
+    for i in range(1, img_len):
+        vo.save_results(i, f"{data_dir}/results/")
 
     estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
     np.savez(f"{data_dir}vo_result_poses.npz", estimated_poses=estimated_poses, real_poses=real_img_poses)

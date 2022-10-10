@@ -1,4 +1,5 @@
 from __future__ import annotations
+from re import I
 import cv2
 import quaternion
 import numpy as np
@@ -177,25 +178,27 @@ class StereoVisualOdometry(VisualOdometry):
         # self.detector = cv2.ORB_create()
         self.detector = cv2.AKAZE_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-
-        self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
-        l1_img, r1_img = self.load_img(self.cnt)
-        self.disparities = [np.divide(self.disparity.compute(l1_img, r1_img).astype(np.float32), 16)]
-        self.cur_left_kpts = []
-        self.cur_right_kpts = []
-        self.prev_left_kpts = []
-        self.prev_right_kpts = []
         self.max_error = 6
+        self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
+
+        l_img, r_img = self.load_img(self.cnt)
+        self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
+        l_kpts, l_desc = self.detector.detectAndCompute(l_img, None)
+
+        self.left_kpts = [l_kpts]
+        self.left_descs = [l_desc]
+        self.matches = [None]
+        self.matched_prev_kpts = [None]
+        self.matched_curr_kpts = [None]
 
     def estimate_pose(self):
-        l1_img, r1_img = self.load_img(self.cnt)
-        l2_img, r2_img = self.load_img(self.cnt + 1)
-        self.disparities.append(np.divide(self.disparity.compute(l2_img, r2_img).astype(np.float32), 16))
+        left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
+        self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
         # tp1_l, tp2_l = self.detectAndTrackFeaturesByOptFlow(l1_img, l2_img)
-        tp1_l, tp2_l = self.detectAndTrackFeatures(l1_img, l2_img)
+        tp1_l, tp2_l = self.detectAndTrackFeatures(self.cnt, left_curr_img)
         if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
             return None
-        tp1_l, tp1_r, tp2_l, tp2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
+        tp1_l, tp2_l, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
         # for q1, q2 in zip(tp1_l, tp2_l):
         #     cv2.line(l1_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
         # cv2.imwrite(f'./keypoints_{self.cnt:05d}.png', l1_img)
@@ -206,12 +209,10 @@ class StereoVisualOdometry(VisualOdometry):
         # ax.imshow(self.disparities[-1])
         # fig.savefig(f'./disparity_{self.cnt:05d}.png', dpi=300, bbox_inches='tight', pad_inches=0)
         # plt.cla()
-        Q1, Q2 = self.calc_3d(tp1_l, tp1_r, tp2_l, tp2_r)
-        transformation_matrix = self.estimate_transform_matrix(tp1_l, tp2_l, Q1, Q2)
-        self.prev_left_kpts.append(tp1_l)
-        self.prev_right_kpts.append(tp1_r)
-        self.cur_left_kpts.append(tp2_l)
-        self.cur_right_kpts.append(tp2_r)
+        Q1, Q2 = self.calc_3d(pt1_l, pt1_r, pt2_l, pt2_r)
+        transformation_matrix = self.estimate_transform_matrix(pt1_l, pt2_l, Q1, Q2)
+        self.matched_prev_kpts.append(tp1_l)
+        self.matched_curr_kpts.append(tp2_l)
         self.cnt += 1
         return transformation_matrix
 
@@ -220,19 +221,21 @@ class StereoVisualOdometry(VisualOdometry):
         tp1_l, tp2_l = self.track_keypoints(img1, img2, kp1_l, 6)
         return tp1_l, tp2_l
 
-    def detectAndTrackFeatures(self, img1: np.ndarray, img2: np.ndarray):
-        kp1, desc1 = self.detector.detectAndCompute(img1, None)
-        kp2, desc2 = self.detector.detectAndCompute(img2, None)
-        matches = self.bf.match(desc1, desc2)
+    def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray):
+        prev_kpts = self.left_kpts[i]
+        prev_descs = self.left_descs[i]
+        curr_kpts, curr_descs = self.detector.detectAndCompute(curr_img, None)
+        self.left_kpts.append(curr_kpts)
+        self.left_descs.append(curr_descs)
+        matches = self.bf.match(prev_descs, curr_descs)
 
         tp1 = []
         tp2 = []
         matches = sorted(matches, key=lambda x: x.distance)
         for i in range(min(50, len(matches))):
-            tp1.append(kp1[matches[i].queryIdx].pt)
-            tp2.append(kp2[matches[i].trainIdx].pt)
-        tp1 = np.array(tp1)
-        tp2 = np.array(tp2)
+            tp1.append(prev_kpts[matches[i].queryIdx])
+            tp2.append(curr_kpts[matches[i].trainIdx])
+        self.matches.append(matches[:i + 1])
         # tp1 = np.array([kp1[m.queryIdx].pt for m in matches])
         # tp2 = np.array([kp2[m.trainIdx].pt for m in matches])
         # dst = cv2.drawMatches(img1, kp1, img2, kp2, matches, None)
@@ -275,9 +278,10 @@ class StereoVisualOdometry(VisualOdometry):
         trackpoints2 = trackpoints2[in_bounds]
         return trackpoints1, trackpoints2
 
-    def calculate_right_qs(self, q1, q2, disp1, disp2, min_disp=10.0, max_disp=512.0):
-        def get_idxs(q: np.ndarray, disp):
-            q_idx = q.astype(int)
+    def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disp1, disp2, min_disp=10.0, max_disp=512.0):
+        def get_idxs(q: cv2.KeyPoint, disp):
+            q_pts = np.array([q_.pt for q_ in q])
+            q_idx = q_pts.astype(int)
             disp = disp.T[q_idx[:, 0], q_idx[:, 1]]
             return disp, np.where(np.logical_and(min_disp < disp, disp < max_disp), True, False)
 
@@ -286,13 +290,16 @@ class StereoVisualOdometry(VisualOdometry):
         disp2, mask2 = get_idxs(q2, disp2)
 
         in_bounds = np.logical_and(mask1, mask2)    # Combine the masks
-        q1_l, q2_l, disp1, disp2 = q1[in_bounds], q2[in_bounds], disp1[in_bounds], disp2[in_bounds]  # Get the feature points and disparity's there was in bounds
+        kpt1_l, kpt2_l, disp1, disp2 = np.array(q1)[in_bounds], np.array(q2)[in_bounds], disp1[in_bounds], disp2[in_bounds]  # Get the feature points and disparity's there was in bounds
+        self.matches[-1] = list(np.array(self.matches[-1])[in_bounds])  # Update the matches
+        q1_l = np.array([q.pt for q in kpt1_l])
+        q2_l = np.array([q.pt for q in kpt2_l])
 
         # Calculate the right feature points
         q1_r, q2_r = np.copy(q1_l), np.copy(q2_l)
         q1_r[:, 0] -= disp1
         q2_r[:, 0] -= disp2
-        return q1_l, q1_r, q2_l, q2_r
+        return list(kpt1_l), list(kpt2_l), q1_l, q1_r, q2_l, q2_r
 
     def estimate_transform_matrix(self, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray, max_iter: int = 100):
         early_termination_threshold = 5
@@ -367,12 +374,14 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[i]
         return l_img, r_img
 
-    def draw_kpts(self, i: int, base_src:str="./image"):
-        l_img, r_img = self.load_img(i)
-        q2_l = self.cur_left_kpts[i]
-        q2_r = self.cur_right_kpts[i]
-        q1_l = self.prev_left_kpts[i]
-        q1_r = self.prev_right_kpts[i]
-        for q1, q2 in zip(q1_l, q2_l):
-            cv2.line(l_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
-        cv2.imwrite(f'./{base_src}{i}.png', l_img)
+    def save_results(self, i: int, base_src: str = "./result"):
+        kpts = self.left_kpts[i]
+        np.savez(
+            f"{base_src}/{i:04d}.npz",
+            kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
+            descs=self.left_descs[i],
+            disp=self.disparities[i],
+            matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches is not None else None,
+            matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts is not None else None,
+            matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts is not None else None,
+        )
