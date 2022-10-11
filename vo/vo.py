@@ -1,10 +1,10 @@
 from __future__ import annotations
+from re import I
 import cv2
 import quaternion
 import warnings
 import numpy as np
 from scipy.optimize import least_squares
-import matplotlib.pyplot as plt
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -133,8 +133,7 @@ class MonocularVisualOdometry(VisualOdometry):
             sum_of_pos_z_Q2 = sum(uhom_Q2[2, :] > 0)
 
             # Form point pairs and calculate the relative scale
-            relative_scale = np.mean(np.linalg.norm(uhom_Q1.T[:-1] - uhom_Q1.T[1:], axis=-1) /
-                                     np.linalg.norm(uhom_Q2.T[:-1] - uhom_Q2.T[1:], axis=-1))
+            relative_scale = np.mean(np.linalg.norm(uhom_Q1.T[:-1] - uhom_Q1.T[1:], axis=-1) / np.linalg.norm(uhom_Q2.T[:-1] - uhom_Q2.T[1:], axis=-1))
             return sum_of_pos_z_Q1 + sum_of_pos_z_Q2, relative_scale
 
         R1, R2, t = cv2.decomposeEssentialMat(E)
@@ -174,151 +173,101 @@ class StereoVisualOdometry(VisualOdometry):
         self.right_imgs = right_imgs
 
         self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
-        # self.detector = cv2.FastFeatureDetector_create()
         # self.detector = cv2.ORB_create()
         self.detector = cv2.AKAZE_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        self.max_error = 6
 
         self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
-        l1_img, r1_img = self.load_img(self.cnt)
-        self.disparities = [np.divide(self.disparity.compute(l1_img, r1_img).astype(np.float32), 16)]
-        self.cur_left_kpts = []
-        self.cur_right_kpts = []
-        self.prev_left_kpts = []
-        self.prev_right_kpts = []
-        self.max_error = 6
-        self.num_max_features = 100
+
+        l_img, r_img = self.load_img(self.cnt)
+        self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
+        l_kpts, l_desc = self.detector.detectAndCompute(l_img, None)
+
+        self.left_kpts = [l_kpts]
+        self.left_descs = [l_desc]
+        self.matches = [None]
+        self.matched_prev_kpts = [None]
+        self.matched_curr_kpts = [None]
 
     def estimate_pose(self):
-        l1_img, r1_img = self.load_img(self.cnt)
-        l2_img, r2_img = self.load_img(self.cnt + 1)
-        self.disparities.append(np.divide(self.disparity.compute(l2_img, r2_img).astype(np.float32), 16))
-        # tp1_l, tp2_l = self.detectAndTrackFeaturesByOptFlow(l1_img, l2_img)
-        tp1_l, tp2_l = self.detectAndTrackFeatures(l1_img, l2_img)
+        # Load images
+        left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
+
+        # Calculate disparity
+        self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
+
+        # Detect and track keypoints
+        tp1_l, tp2_l, matches = self.detectAndTrackFeatures(self.cnt, left_curr_img)
         if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
             warnings.warn("Cannot track features")
-            self.prev_left_kpts.append(tp1_l)
-            self.prev_right_kpts.append(tp1_r)
-            self.cur_left_kpts.append(tp2_l)
-            self.cur_right_kpts.append(tp2_r)
-            self.cnt += 1
-            return None
-        tp1_l, tp1_r, tp2_l, tp2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1])
-        if len(tp1_l) == 0 or len(tp2_l) == 0 or len(tp1_r) == 0 or len(tp2_r) == 0:
-            warnings.warn("Cannot find depth-available features")
-            self.prev_left_kpts.append(tp1_l)
-            self.prev_right_kpts.append(tp1_r)
-            self.cur_left_kpts.append(tp2_l)
-            self.cur_right_kpts.append(tp2_r)
+            self.matched_prev_kpts.append(tp1_l)
+            self.matched_curr_kpts.append(tp2_l)
+            self.matches.append(matches)
             self.cnt += 1
             return None
 
-        # for q1, q2 in zip(tp1_l, tp2_l):
-        #     cv2.line(l1_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
-        # cv2.imwrite(f'./keypoints_{self.cnt:05d}.png', l1_img)
+        # Find the corresponding points in the right image
+        tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1], matches)
 
-        # for kp in kp1_l:
-        #     cv2.circle(l1_img, (int(kp.pt[0]), int(kp.pt[1])), 2, (0, 0, 255), 1)
-        # fig, ax = plt.subplots()
-        # ax.imshow(self.disparities[-1])
-        # fig.savefig(f'./disparity_{self.cnt:05d}.png', dpi=300, bbox_inches='tight', pad_inches=0)
-        # plt.cla()
-        Q1, Q2 = self.calc_3d(tp1_l, tp1_r, tp2_l, tp2_r)
-        transformation_matrix = self.estimate_transform_matrix(tp1_l, tp2_l, Q1, Q2)
-        self.prev_left_kpts.append(tp1_l)
-        self.prev_right_kpts.append(tp1_r)
-        self.cur_left_kpts.append(tp2_l)
-        self.cur_right_kpts.append(tp2_r)
+        # Calculate essential matrix and the correct pose
+        Q1, Q2 = self.calc_3d(pt1_l, pt1_r, pt2_l, pt2_r)
+        transformation_matrix = self.estimate_transform_matrix(pt1_l, pt2_l, Q1, Q2)
+
+        self.matched_prev_kpts.append(tp1_l)
+        self.matched_curr_kpts.append(tp2_l)
+        self.matches.append(matches)
         self.cnt += 1
         return transformation_matrix
 
-    def detectAndTrackFeaturesByOptFlow(self, img1: np.ndarray, img2: np.ndarray):
-        kp1_l = self.get_keypoints(img1, 10, 10)
-        tp1_l, tp2_l = self.track_keypoints(img1, img2, kp1_l, 6)
-        return tp1_l, tp2_l
-
-    def detectAndTrackFeatures(self, img1: np.ndarray, img2: np.ndarray):
-        kp1, desc1 = self.detector.detectAndCompute(img1, None)
-        kp2, desc2 = self.detector.detectAndCompute(img2, None)
-        matches = self.bf.match(desc1, desc2)
+    def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray):
+        prev_kpts = self.left_kpts[i]
+        prev_descs = self.left_descs[i]
+        curr_kpts, curr_descs = self.detector.detectAndCompute(curr_img, None)
+        self.left_kpts.append(curr_kpts)
+        self.left_descs.append(curr_descs)
+        matches = self.bf.match(prev_descs, curr_descs)
 
         tp1 = []
         tp2 = []
         matches = sorted(matches, key=lambda x: x.distance)
-        for i in range(min(self.num_max_features, len(matches))):
-            tp1.append(kp1[matches[i].queryIdx].pt)
-            tp2.append(kp2[matches[i].trainIdx].pt)
-        tp1 = np.array(tp1)
-        tp2 = np.array(tp2)
+        new_matches = []
+        for i in range(min(50, len(matches))):
+            tp1.append(prev_kpts[matches[i].queryIdx])
+            tp2.append(curr_kpts[matches[i].trainIdx])
+            new_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+        return tp1, tp2, new_matches
 
-        h, w, _ = img1.shape
-        mask1 = np.where(np.logical_and(tp1[:, 1] < h - 80, tp1[:, 0] < w), True, False)
-        tp1 = tp1[mask1]
-        tp2 = tp2[mask1]
-        mask2 = np.where(np.logical_and(tp2[:, 1] < h - 80, tp2[:, 0] < w), True, False)
-        tp1 = tp1[mask2]
-        tp2 = tp2[mask2]
-        # tp1 = np.array([kp1[m.queryIdx].pt for m in matches])
-        # tp2 = np.array([kp2[m.trainIdx].pt for m in matches])
-        # dst = cv2.drawMatches(img1, kp1, img2, kp2, matches, None)
-        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", dst)
-        # img = np.hstack((img1, img2))
-        # for p1, p2 in zip(tp1, tp2):
-        #     cv2.line(img, (int(p1[0]), int(p1[1])), (int(p2[0] + img1.shape[1]), int(p2[1])), (0, 255, 0), 1)
-        # cv2.imwrite(f"./match_pt_{self.cnt:05d}.png", img)
-        return tp1, tp2
-
-    def get_keypoints(self, img: np.ndarray, tile_h: int, tile_w: int):
-        def get_kps(x, y):
-            impatch = img[y:y + tile_h, x:x + tile_w]   # Get the image tile
-            kpts = self.detector.detect(impatch)  # Detect keypoints
-            for pt in kpts:    # Correct the coordinate for the point
-                pt.pt = (pt.pt[0] + x, pt.pt[1] + y)
-            if len(kpts) > 10:  # Get the 10 best keypoints
-                kpts = sorted(kpts, key=lambda x: -x.response)
-                return kpts[:10]
-            return kpts
-        h, w, _ = img.shape
-        kp_list = [get_kps(x, y) for y in range(0, h, tile_h) for x in range(0, w, tile_w)]  # Get the keypoints for each of the tiles
-        kp_list_flatten = np.concatenate(kp_list)   # Flatten the keypoint list
-        return kp_list_flatten
-
-    def track_keypoints(self, img1: np.ndarray, img2: np.ndarray, kp1, max_error=10):
-        tp1 = np.expand_dims(cv2.KeyPoint_convert(kp1), axis=1)
-        tp2, st, err = cv2.calcOpticalFlowPyrLK(img1, img2, tp1, None, **self.lk_params)  # Use optical flow to find tracked counterparts
-        trackable = st.astype(bool)  # Convert the status vector to boolean so we can use it as a mask
-        under_thresh = np.where(err[trackable] < max_error, True, False)  # Create a maks there selects the keypoints there was trackable and under the max error
-
-        # Use the mask to select the keypoints
-        tp1 = tp1[trackable][under_thresh]
-        tp2 = np.around(tp2[trackable][under_thresh])
-
-        # Remove the keypoints there is outside the image
-        h, w, _ = img1.shape
-        in_bounds = np.where(np.logical_and(tp2[:, 1] < h, tp2[:, 0] < w), True, False)
-        in_bounds = np.where(np.logical_and(tp2[:, 1] < h - 80, tp2[:, 0] < w), True, False)
-        tp1 = tp1[in_bounds]
-        tp2 = tp2[in_bounds]
-        return tp1, tp2
-
-    def calculate_right_qs(self, q1, q2, disp1, disp2, min_disp=10.0, max_disp=512.0):
-        def get_idxs(q: np.ndarray, disp):
-            q_idx = q.astype(int)
+    def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disps1: np.ndarray, disps2: np.ndarray, matches: list[cv2.DMatch], min_disp: float = 10.0, max_disp: float = 512.0):
+        def get_idxs(q: list, disp):
+            q_pts = np.array([q_.pt for q_ in q])
+            q_idx = q_pts.astype(int)
             disp = disp.T[q_idx[:, 0], q_idx[:, 1]]
             return disp, np.where(np.logical_and(min_disp < disp, disp < max_disp), True, False)
 
         # Get the disparity's for the feature points and mask for min_disp & max_disp
-        disp1, mask1 = get_idxs(q1, disp1)
-        disp2, mask2 = get_idxs(q2, disp2)
+        disps1, mask1 = get_idxs(q1, disps1)
+        disps2, mask2 = get_idxs(q2, disps2)
 
-        in_bounds = np.logical_and(mask1, mask2)    # Combine the masks
-        q1_l, q2_l, disp1, disp2 = q1[in_bounds], q2[in_bounds], disp1[in_bounds], disp2[in_bounds]  # Get the feature points and disparity's there was in bounds
+        masks = np.logical_and(mask1, mask2)    # Combine the masks
+        kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []
+        mask_cnt = 0
+        for mask, kpt1, kpt2, disp1, disp2, match in zip(masks, q1, q2, disps1, disps2, matches):
+            if mask:
+                kpt1_l.append(kpt1)
+                kpt2_l.append(kpt2)
+                disps1_masked.append(disp1)
+                disps2_masked.append(disp2)
+                matches_masked.append(cv2.DMatch(mask_cnt, mask_cnt, match.imgIdx, match.distance))
+                mask_cnt += 1
+        q1_l = np.array([q.pt for q in kpt1_l])
+        q2_l = np.array([q.pt for q in kpt2_l])
 
         # Calculate the right feature points
         q1_r, q2_r = np.copy(q1_l), np.copy(q2_l)
-        q1_r[:, 0] -= disp1
-        q2_r[:, 0] -= disp2
-        return q1_l, q1_r, q2_l, q2_r
+        q1_r[:, 0] -= disps1_masked
+        q2_r[:, 0] -= disps2_masked
+        return list(kpt1_l), list(kpt2_l), matches_masked, q1_l, q1_r, q2_l, q2_r
 
     def estimate_transform_matrix(self, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray, max_iter: int = 100):
         early_termination_threshold = 5
@@ -393,23 +342,14 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[i]
         return l_img, r_img
 
-    def draw_kpts(self, i: int, base_src: str = "./kpts"):
-        l_img, r_img = self.load_img(i)
-        q2_l = self.cur_left_kpts[i]
-        q2_r = self.cur_right_kpts[i]
-        q1_l = self.prev_left_kpts[i]
-        q1_r = self.prev_right_kpts[i]
-        for q1, q2 in zip(q1_l, q2_l):
-            cv2.line(l_img, (int(q1[0]), int(q1[1])), (int(q2[0]), int(q2[1])), (0, 255, 0), 1)
-        cv2.imwrite(f'./{base_src}{i:04d}.png', l_img)
-
-    def draw_disp(self, i: int, base_src: str = "./disps"):
-        fig = plt.figure()
-        ax = fig.add_subplot(111)
-        im = ax.imshow(self.disparities[i] / 16)
-        ax_c = fig.colorbar(im)
-        ax_c.set_label("Disparity", fontsize=10)
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-        fig.savefig(f'./{base_src}{i:04d}.png', bbox_inches='tight', pad_inches=0.1, dpi=300)
-        plt.close()
+    def save_results(self, i: int, base_src: str = "./result"):
+        kpts = self.left_kpts[i]
+        np.savez(
+            f"{base_src}/{i:04d}.npz",
+            kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
+            descs=self.left_descs[i],
+            disp=self.disparities[i],
+            matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches is not None else None,
+            matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts is not None else None,
+            matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts is not None else None,
+        )

@@ -12,7 +12,7 @@ def poses(src: str):
 
 
 if __name__ == "__main__":
-    data_dir = "./datasets/feature_less_rock_05"
+    data_dir = "./datasets/feature_less_rock"
     estimated_poses, img_poses = poses(f"{data_dir}/vo_result_poses.npz")
     # fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
     # ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
