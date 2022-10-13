@@ -1,6 +1,6 @@
 from __future__ import annotations
-from re import I
 import cv2
+import os
 import quaternion
 import warnings
 import numpy as np
@@ -370,14 +370,16 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[i]
         return l_img, r_img
 
-    def save_results(self, i: int, base_src: str = "./result"):
-        kpts = self.left_kpts[i]
-        np.savez(
-            f"{base_src}/{i:04d}.npz",
-            kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
-            descs=self.left_descs[i],
-            disp=self.disparities[i],
-            matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
-            matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
-            matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,
-        )
+    def save_results(self, last_img_idx: int, step: int, base_src: str = "./result"):
+        os.makedirs(base_src, exist_ok=True)
+        for i, img_idx in enumerate(range(0, last_img_idx, step)):
+            kpts = self.left_kpts[i]
+            np.savez(
+                f"{base_src}/{img_idx:04d}.npz",
+                kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
+                descs=self.left_descs[i],
+                disp=self.disparities[i],
+                matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
+                matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
+                matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,
+            )

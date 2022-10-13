@@ -1,5 +1,6 @@
 __pycache__
 datasets
+!vo/datasets
 *.png
 *.jpg
 *.mp4
