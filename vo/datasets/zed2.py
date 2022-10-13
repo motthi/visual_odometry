@@ -17,12 +17,12 @@ def read_poses_quats(src: str):
     return poses, quats
 
 
-def read_camera_pose(src: str):
+def read_camera_pose(src: str, step: int = 1):
     with open(src) as f:
         lines = f.readlines()
     poses = []
     quats = []
-    for line in lines:
+    for line in lines[::step]:
         data = line.split(",")
         poses.append([float(data[0]), float(data[1]), float(data[2])])
         quats.append([float(data[3]), float(data[4]), float(data[5]), float(data[6])])

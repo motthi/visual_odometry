@@ -1,36 +1,43 @@
 import numpy as np
 import matplotlib.pyplot as plt
+from vo.utils import *
 
 
-def poses(src: str):
-    data = np.load(src)
-    estimatde_poses = data['estimated_poses'][1:]
-    img_poses = data['real_poses']
-    diff = img_poses[0] - estimatde_poses[0]
-    estimatde_poses += diff
-    return estimatde_poses, img_poses
+def relative_pos_diff(estimated_poses, real_poses):
+    e_diffs = []
+    r_diffs = []
+    prev_e_poses = estimated_poses[:-1]
+    prev_r_poses = real_poses[1:-1]
+    curr_e_poses = estimated_poses[1:]
+    curr_r_poses = real_poses[2:]
+    for prev_e_pos, prev_r_pos, curr_e_pos, curr_r_pos in zip(prev_e_poses, prev_r_poses, curr_e_poses, curr_r_poses):
+        e_diff = np.linalg.norm(curr_e_pos - prev_e_pos)
+        r_diff = np.linalg.norm(curr_r_pos - prev_r_pos)
+        e_diffs.append(e_diff)
+        r_diffs.append(r_diff)
+    return e_diffs, r_diffs
 
 
 if __name__ == "__main__":
-    data_dir = "./datasets/feature_less_rock"
-    estimated_poses, img_poses = poses(f"{data_dir}/vo_result_poses.npz")
-    # fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-    # ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
-    # ax.plot(img_poses[:, 0], img_poses[:, 1], img_poses[:, 2], '-o', c='#ff7f0e', markersize=2)
-    # ax.set_xlabel("x")
-    # ax.set_ylabel("y")
-    # # ax.set_xlim(4, 8)
-    # # ax.set_ylim(4, 8)
-    # ax.set_zlim(0, 1)
-    # plt.show()
-
+    data_dir = "./datasets/aki_20221013_1/"
+    estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")
     rmses = []
     for e_pos, r_pos in zip(estimated_poses, img_poses):
         rmses.append(np.linalg.norm(e_pos - r_pos))
+    e_diffs, r_diffs = relative_pos_diff(estimated_poses, img_poses)
 
     fig, ax = plt.subplots()
-    ax.plot(np.arange(len(rmses)), rmses)
-    ax.set_xlabel("Image Index")
-    ax.set_ylabel("RMSE [m]")
+    ax.plot(np.arange(len(e_diffs)), e_diffs, label="Estimated")
+    ax.plot(np.arange(len(r_diffs)), r_diffs, label="Truth")
+    ax.legend()
+    ax.set_xlabel("Image index")
+    ax.set_ylabel("Relative position [m]")
+    # ax.set_ylim(0, 0.2)
     plt.show()
-    fig.savefig(f"{data_dir}/rmse.png", dpi=300, bbox_inches='tight', pad_inches=0)
+
+    # fig, ax = plt.subplots()
+    # ax.plot(np.arange(len(rmses)), rmses)
+    # ax.set_xlabel("Image Index")
+    # ax.set_ylabel("RMSE [m]")
+    # plt.show()
+    # fig.savefig(f"{data_dir}/rmse.png", dpi=300, bbox_inches='tight', pad_inches=0)

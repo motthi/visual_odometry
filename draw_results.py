@@ -7,8 +7,8 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    step = 5
-    data_dir = "./datasets/aki_20221012_2/"
+    step = 1
+    data_dir = "./datasets/aki_20221013_1/"
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
 
     os.makedirs(f"{data_dir}/disps/", exist_ok=True)
