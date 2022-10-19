@@ -211,32 +211,32 @@ class StereoVisualOdometry(VisualOdometry):
         tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1], matches)
 
         # Delete keypoints if needed
-        new_tp1_l = []
-        new_tp2_l = []
-        new_matches = []
-        new_pt1_l = []
-        new_pt2_l = []
-        new_pt1_r = []
-        new_pt2_r = []
-        cnt = 0
-        for t1, t2, match, p1_l, p1_r, p2_l, p2_r in zip(tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r):
-            if p1_l[1] > 300 or p2_l[1] > 300:
-                continue
-            new_tp1_l.append(t1)
-            new_tp2_l.append(t2)
-            new_pt1_l.append(p1_l)
-            new_pt2_l.append(p2_l)
-            new_pt1_r.append(p1_r)
-            new_pt2_r.append(p2_r)
-            new_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
-            cnt += 1
-        matches = new_matches
-        tp1_l = np.array(new_tp1_l)
-        tp2_l = np.array(new_tp2_l)
-        pt1_l = np.array(new_pt1_l)
-        pt2_l = np.array(new_pt2_l)
-        pt1_r = np.array(new_pt1_r)
-        pt2_r = np.array(new_pt2_r)
+        # new_tp1_l = []
+        # new_tp2_l = []
+        # new_matches = []
+        # new_pt1_l = []
+        # new_pt2_l = []
+        # new_pt1_r = []
+        # new_pt2_r = []
+        # cnt = 0
+        # for t1, t2, match, p1_l, p1_r, p2_l, p2_r in zip(tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r):
+        #     if p1_l[1] > 300 or p2_l[1] > 300:
+        #         continue
+        #     new_tp1_l.append(t1)
+        #     new_tp2_l.append(t2)
+        #     new_pt1_l.append(p1_l)
+        #     new_pt2_l.append(p2_l)
+        #     new_pt1_r.append(p1_r)
+        #     new_pt2_r.append(p2_r)
+        #     new_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
+        #     cnt += 1
+        # matches = new_matches
+        # tp1_l = np.array(new_tp1_l)
+        # tp2_l = np.array(new_tp2_l)
+        # pt1_l = np.array(new_pt1_l)
+        # pt2_l = np.array(new_pt2_l)
+        # pt1_r = np.array(new_pt1_r)
+        # pt2_r = np.array(new_pt2_r)
 
         # Calculate essential matrix and the correct pose
         Q1, Q2 = self.calc_3d(pt1_l, pt1_r, pt2_l, pt2_r)

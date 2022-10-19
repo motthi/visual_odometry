@@ -8,18 +8,19 @@ from tqdm import tqdm
 
 if __name__ == "__main__":
     step = 1
-    data_dir = "./datasets/aki_20221013_1/"
+    data_dir = "./datasets/aki_20221012_2/"
+    data_dir = "./datasets/feature_less_plane/"
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
 
-    os.makedirs(f"{data_dir}/disps/", exist_ok=True)
-    os.makedirs(f"{data_dir}/kpts/", exist_ok=True)
-    os.makedirs(f"{data_dir}/matched_kpts/", exist_ok=True)
+    os.makedirs(f"{data_dir}disps/", exist_ok=True)
+    os.makedirs(f"{data_dir}kpts/", exist_ok=True)
+    os.makedirs(f"{data_dir}matched_kpts/", exist_ok=True)
 
     for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx, step))):
         img = cv2.imread(f"{data_dir}left/{last_img_idx:04d}.png")
         prev_img = cv2.imread(f"{data_dir}left/{last_img_idx-step:04d}.png")
 
-        data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz")
+        data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz", allow_pickle=True)
 
         # Disparities
         disp = data['disp']
