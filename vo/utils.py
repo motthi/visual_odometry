@@ -28,12 +28,12 @@ def load_images(src: str = "./datasets", last_img_idx: int = 30, step=1) -> list
 
 def load_result_poses(src: str):
     data = np.load(src)
-    estimatde_poses = data['estimated_poses']
-    real_poses = data['real_poses']
-    img_poses = data['real_img_poses']
+    estimatde_poses = data['estimated']
+    truth_poses = data['truth']
+    img_poses = data['img_truth']
     diff = img_poses[0] - estimatde_poses[0]
     estimatde_poses += diff
-    return estimatde_poses, real_poses, img_poses
+    return estimatde_poses, truth_poses, img_poses
 
 
 def draw_vo_results(

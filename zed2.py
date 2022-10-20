@@ -38,7 +38,7 @@ if __name__ == "__main__":
             poses.append(cur_pose)
 
     estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
-    np.savez(f"{data_dir}vo_result_poses.npz", estimated_poses=estimated_poses, real_poses=real_poses, real_img_poses=real_img_poses)
+    np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
     draw_vo_results(estimated_poses, real_poses, real_img_poses)
     # draw_vo_results(estimated_poses, real_poses, f"{data_dir}vo_result.png")
     vo.save_results(last_img_idx, step, f"{data_dir}/results/")

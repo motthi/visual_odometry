@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 from vo.utils import *
 
 
-def relative_pos_diff(estimated_poses, real_poses):
+def relative_pos_diff(estimated_poses, truth_poses):
     e_diffs = []
     r_diffs = []
     prev_e_poses = estimated_poses[:-1]
-    prev_r_poses = real_poses[:-1]
+    prev_r_poses = truth_poses[:-1]
     curr_e_poses = estimated_poses[1:]
-    curr_r_poses = real_poses[1:]
+    curr_r_poses = truth_poses[1:]
     for prev_e_pos, prev_r_pos, curr_e_pos, curr_r_pos in zip(prev_e_poses, prev_r_poses, curr_e_poses, curr_r_poses):
         e_diff = np.linalg.norm(curr_e_pos - prev_e_pos)
         r_diff = np.linalg.norm(curr_r_pos - prev_r_pos)
