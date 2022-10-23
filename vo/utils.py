@@ -1,8 +1,8 @@
 from __future__ import annotations
-from operator import truth
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation as R
 
 
 def load_images(src: str = "./datasets", last_img_idx: int = 30, step=1) -> list[np.ndarray, np.ndarray]:
@@ -68,7 +68,25 @@ def draw_vo_results(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_zlabel("z")
+
+    quats = np.array([-0.00960197, 0.73453194, -0.05424777, 0.6763341])
+    rot = R.from_quat(quats).as_matrix()
+    trans = np.array([[-1.0951138, 0.6985825, 0.815844]]).T
+    draw_coordinate(ax, rot, trans)
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
     plt.show()
+
+
+def draw_coordinate(ax, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T):
+    xe = np.array([[1, 0, 0]]).T
+    ye = np.array([[0, 1, 0]]).T
+    ze = np.array([[0, 0, 1]]).T
+    xe = (rot @ xe).T[0]
+    ye = (rot @ ye).T[0]
+    ze = (rot @ ze).T[0]
+    trans = trans.T[0]
+    ax.quiver(trans[0], trans[1], trans[2], xe[0], xe[1], xe[2], color='r')
+    ax.quiver(trans[0], trans[1], trans[2], ye[0], ye[1], ye[2], color='g')
+    ax.quiver(trans[0], trans[1], trans[2], ze[0], ze[1], ze[2], color='b')
