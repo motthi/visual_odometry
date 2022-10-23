@@ -301,6 +301,13 @@ class StereoVisualOdometry(VisualOdometry):
         q2_r[:, 0] -= disps2_masked
         return list(kpt1_l), list(kpt2_l), matches_masked, q1_l, q1_r, q2_l, q2_r
 
+    def calc_3d(self, q1_l: np.ndarray, q1_r: np.ndarray, q2_l: np.ndarray, q2_r: np.ndarray):
+        Q1 = cv2.triangulatePoints(self.P_l, self.P_r, q1_l.T, q1_r.T)  # Triangulate points from i-1'th image
+        Q1 = np.transpose(Q1[:3] / Q1[3])   # Un-homogenize
+        Q2 = cv2.triangulatePoints(self.P_l, self.P_r, q2_l.T, q2_r.T)  # Triangulate points from i'th image
+        Q2 = np.transpose(Q2[:3] / Q2[3])   # Un-homogenize
+        return Q1, Q2
+
     def estimate_transform_matrix(self, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray, max_iter: int = 100):
         early_termination_threshold = 5
 
@@ -361,13 +368,6 @@ class StereoVisualOdometry(VisualOdometry):
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]  # Un-homogenize
         residuals = np.vstack([q1_pred - q1.T, q2_pred - q2.T]).flatten()  # Calculate the residuals
         return residuals
-
-    def calc_3d(self, q1_l: np.ndarray, q1_r: np.ndarray, q2_l: np.ndarray, q2_r: np.ndarray):
-        Q1 = cv2.triangulatePoints(self.P_l, self.P_r, q1_l.T, q1_r.T)  # Triangulate points from i-1'th image
-        Q1 = np.transpose(Q1[:3] / Q1[3])   # Un-homogenize
-        Q2 = cv2.triangulatePoints(self.P_l, self.P_r, q2_l.T, q2_r.T)  # Triangulate points from i'th image
-        Q2 = np.transpose(Q2[:3] / Q2[3])   # Un-homogenize
-        return Q1, Q2
 
     def load_img(self, i: int) -> list[np.ndarray, np.ndarray]:
         l_img = self.left_imgs[i]
