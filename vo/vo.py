@@ -11,10 +11,9 @@ from scipy.optimize import least_squares
 
 class VisualOdometry():
     def __init__(self, camera_params, imgs) -> None:
-        self.intrinsic_l = camera_params['intrinsic']
         self.extrinsic_l = camera_params['extrinsic']
         self.P_l = camera_params['projection']
-        self.K_l = self.P_l[0:3, 0:3]
+        self.K_l = camera_params['intrinsic']
         self.left_imgs = imgs
         self.cnt = 0
 
@@ -33,7 +32,6 @@ class VisualOdometry():
 class MonocularVisualOdometry(VisualOdometry):
     def __init__(self, left_camera_params, left_imgs) -> None:
         super().__init__(left_camera_params, left_imgs)
-        self.K_l = self.intrinsic_l
         # self.P_l = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
 
         self.orb = cv2.ORB_create(3000)
@@ -166,10 +164,9 @@ class StereoVisualOdometry(VisualOdometry):
     ) -> None:
         super().__init__(left_camera_params, left_imgs)
 
-        self.intrinsic_r = right_camera_params['intrinsic']
         self.extrinsic_r = right_camera_params['extrinsic']
         self.P_r = right_camera_params['projection']
-        self.K_r = self.P_r[0:3, 0:3]
+        self.K_r = right_camera_params['intrinsic']
         self.right_imgs = right_imgs
 
         self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
@@ -211,32 +208,39 @@ class StereoVisualOdometry(VisualOdometry):
         tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r = self.calculate_right_qs(tp1_l, tp2_l, self.disparities[self.cnt], self.disparities[self.cnt + 1], matches)
 
         # Delete keypoints if needed
-        # new_tp1_l = []
-        # new_tp2_l = []
-        # new_matches = []
-        # new_pt1_l = []
-        # new_pt2_l = []
-        # new_pt1_r = []
-        # new_pt2_r = []
-        # cnt = 0
-        # for t1, t2, match, p1_l, p1_r, p2_l, p2_r in zip(tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r):
-        #     if p1_l[1] > 300 or p2_l[1] > 300:
-        #         continue
-        #     new_tp1_l.append(t1)
-        #     new_tp2_l.append(t2)
-        #     new_pt1_l.append(p1_l)
-        #     new_pt2_l.append(p2_l)
-        #     new_pt1_r.append(p1_r)
-        #     new_pt2_r.append(p2_r)
-        #     new_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
-        #     cnt += 1
-        # matches = new_matches
-        # tp1_l = np.array(new_tp1_l)
-        # tp2_l = np.array(new_tp2_l)
-        # pt1_l = np.array(new_pt1_l)
-        # pt2_l = np.array(new_pt2_l)
-        # pt1_r = np.array(new_pt1_r)
-        # pt2_r = np.array(new_pt2_r)
+        new_tp1_l = []
+        new_tp2_l = []
+        new_matches = []
+        new_pt1_l = []
+        new_pt2_l = []
+        new_pt1_r = []
+        new_pt2_r = []
+        cnt = 0
+        for t1, t2, match, p1_l, p1_r, p2_l, p2_r in zip(tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r):
+            if p1_l[1] > 300 or p2_l[1] > 300:
+                continue
+            new_tp1_l.append(t1)
+            new_tp2_l.append(t2)
+            new_pt1_l.append(p1_l)
+            new_pt2_l.append(p2_l)
+            new_pt1_r.append(p1_r)
+            new_pt2_r.append(p2_r)
+            new_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
+            cnt += 1
+        matches = new_matches
+        tp1_l = np.array(new_tp1_l)
+        tp2_l = np.array(new_tp2_l)
+        pt1_l = np.array(new_pt1_l)
+        pt2_l = np.array(new_pt2_l)
+        pt1_r = np.array(new_pt1_r)
+        pt2_r = np.array(new_pt2_r)
+        if len(tp1_l) == 0 or len(tp2_l) == 0:  # Could not track features
+            warnings.warn("Cannot track features")
+            self.matched_prev_kpts.append(tp1_l)
+            self.matched_curr_kpts.append(tp2_l)
+            self.matches.append(matches)
+            self.cnt += 1
+            return None
 
         # Calculate essential matrix and the correct pose
         Q1, Q2 = self.calc_3d(pt1_l, pt1_r, pt2_l, pt2_r)
