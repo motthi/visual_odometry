@@ -68,6 +68,7 @@ def camera_params(src: str):
     # ])
     # rot = np.array([[0, -1, 0], [1, 0, 0], [0, 0, 1]]) @ rot
     rot = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(phi), -np.sin(phi)], [0.0, np.sin(phi), np.cos(phi)]])
+    # rot = np.array([[1, 0, 0], [0, 0, 1], [0, -1, 0]]) @ rot
     trans_l = np.array([[0.0, 0.0, 0.0]]).T
     trans_r = np.array([[31.753952026367188 / right_intrinsic[0][0], 0.0, 0.0]]).T
     left_extrinsics = np.hstack((rot.T, -rot.T @ trans_l))

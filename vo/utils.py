@@ -2,6 +2,7 @@ from __future__ import annotations
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib.axes import Axes
 from scipy.spatial.transform import Rotation as R
 
 
@@ -68,18 +69,13 @@ def draw_vo_results(
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_zlabel("z")
-
-    quats = np.array([-0.00960197, 0.73453194, -0.05424777, 0.6763341])
-    rot = R.from_quat(quats).as_matrix()
-    trans = np.array([[-1.0951138, 0.6985825, 0.815844]]).T
-    draw_coordinate(ax, rot, trans)
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
     plt.show()
 
 
-def draw_coordinate(ax, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T):
+def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T):
     xe = np.array([[1, 0, 0]]).T
     ye = np.array([[0, 1, 0]]).T
     ze = np.array([[0, 0, 1]]).T

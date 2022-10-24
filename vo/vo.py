@@ -160,7 +160,8 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        num_disp: int = 300, winSize: tuple = (15, 15)
+        num_disp: int = 300, winSize: tuple = (15, 15),
+        base_rot: np.ndarray = np.eye(3)
     ) -> None:
         super().__init__(left_camera_params, left_imgs)
 
@@ -174,6 +175,7 @@ class StereoVisualOdometry(VisualOdometry):
         self.detector = cv2.AKAZE_create()
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.max_error = 6
+        self.base_rot = base_rot
 
         self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
 
@@ -344,6 +346,7 @@ class StereoVisualOdometry(VisualOdometry):
         r = out_pose[:3]    # Get the rotation vector
         R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
         t = out_pose[3:]    # Get the translation vector
+        t = self.base_rot @ t
         transformation_matrix = self._form_transf(R, t)  # Make the transformation matrix
         return transformation_matrix
 

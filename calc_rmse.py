@@ -43,6 +43,10 @@ def draw_relative_position_error(e_diffs, r_diffs, save_src=None):
 
 def draw_absolute_position_error(e_pos, r_pos, save_src=None):
     fig, ax = plt.subplots()
+    if e_pos.shape[0] != r_pos.shape[0]:
+        num = min(e_pos.shape[0], r_pos.shape[0])
+        e_pos = e_pos[:num]
+        r_pos = r_pos[:num]
     absolute_error = np.linalg.norm(e_pos - r_pos, axis=1)
     ax.plot(np.arange(absolute_error.shape[0]), absolute_error)
     ax.set_xlabel("Image index")
@@ -65,7 +69,7 @@ def draw_abs_erros(e_poses, r_poses, save_src=None):
 
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221012_2/"
+    data_dir = "./datasets/aki_20221021_3/"
     # data_dir = "./datasets/feature_rich_rock/"
     estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")
     rmses = []
