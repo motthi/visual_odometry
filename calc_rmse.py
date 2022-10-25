@@ -69,7 +69,7 @@ def draw_abs_erros(e_poses, r_poses, save_src=None):
 
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221021_3/"
+    data_dir = "./datasets/aki_20221025_4/"
     # data_dir = "./datasets/feature_rich_rock/"
     estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")
     rmses = []
