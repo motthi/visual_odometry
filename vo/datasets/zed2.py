@@ -7,15 +7,18 @@ def read_poses_quats(src: str):
         lines = f.readlines()
     poses = []
     quats = []
-    trackable_id = 5
+    trackable_id = 0
     for line in lines[::100]:
         if line.startswith("frame"):
-            match = re.search(f",{trackable_id},", line)
-            if match:
-                line = line[match.start() + 1:]
-                data = line.split(",")
-                poses.append([float(data[1]), float(data[2]), float(data[3])])
-                quats.append([float(data[4]), float(data[5]), float(data[6]), float(data[7])])
+            # match = re.search(f",{trackable_id},", line)
+            # if match:
+            #     line = line[match.start() + 1:]
+            #     data = line.split(",")
+            #     poses.append([float(data[1]), float(data[2]), float(data[3])])
+            #     quats.append([float(data[4]), float(data[5]), float(data[6]), float(data[7])])
+            data = line.split(",")
+            poses.append([float(data[5]), float(data[6]), float(data[7])])
+            quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[11])])
     poses = np.array(poses, dtype=np.float32)
     quats = np.array(quats, dtype=np.float32)
     return poses, quats
