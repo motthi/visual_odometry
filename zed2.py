@@ -8,7 +8,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221025_4/"
+    data_dir = "./datasets/aki_20221121_2/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
@@ -20,9 +20,9 @@ if __name__ == "__main__":
     vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, num_disp=50, base_rot=base_rot)
 
     # Load initial pose
-    real_poses, real_quats = read_poses_quats(f"{data_dir}optitrack.csv")
+    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
     real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv", step)
-    rot = R.from_quat(np.array(real_quats[10])).as_matrix()
+    rot = R.from_quat(np.array(real_quats[0])).as_matrix()
     trans = np.array([real_poses[0]])
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
     poses = [init_pose]
