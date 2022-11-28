@@ -18,7 +18,6 @@ if __name__ == "__main__":
 
     for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx, step))):
         img = cv2.imread(f"{data_dir}left/{last_img_idx:04d}.png")
-        prev_img = cv2.imread(f"{data_dir}left/{last_img_idx-step:04d}.png")
 
         data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz", allow_pickle=True)
 
@@ -39,6 +38,9 @@ if __name__ == "__main__":
         cv2.drawKeypoints(img, kpts, kpt_img, color=(0, 255, 0), flags=4)
         cv2.imwrite(f"{data_dir}kpts/{last_img_idx:04d}.png", kpt_img)
 
+        if i == 0:
+            continue
+        prev_img = cv2.imread(f"{data_dir}left/{last_img_idx-step:04d}.png")
         if prev_img is None:
             continue
 

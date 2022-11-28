@@ -8,7 +8,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221121_2/"
+    data_dir = "./datasets/aki_20221025_4/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
