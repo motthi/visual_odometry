@@ -12,10 +12,11 @@ if __name__ == "__main__":
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
+    if last_img_idx == 0:
+        raise FileNotFoundError("No images found in the dataset directory.")
+
     l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx, step)
     base_rot = np.eye(3)
-    # base_rot = np.array([[1.0, 0.0, 0.0], [0.0, 0.0, -1.0], [0.0, 1.0, 0.0]]) @ base_rot
-    # base_rot = np.array([[0, 0, -1], [0, 1, 0], [1, 0, 0]])
 
     vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, num_disp=50, base_rot=base_rot)
 
@@ -40,5 +41,5 @@ if __name__ == "__main__":
     estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
     np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
     # draw_vo_results(estimated_poses, real_poses, real_img_poses)
-    draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png")
+    draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
     vo.save_results(last_img_idx, step, f"{data_dir}/results/")
