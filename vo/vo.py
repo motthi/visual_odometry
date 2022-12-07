@@ -9,6 +9,7 @@ from scipy.optimize import least_squares
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
 
+
 class VisualOdometry():
     def __init__(self, camera_params, imgs) -> None:
         self.extrinsic_l = camera_params['extrinsic']
@@ -160,6 +161,7 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
+        detector, descriptor,
         num_disp: int = 300, winSize: tuple = (15, 15),
         base_rot: np.ndarray = np.eye(3)
     ) -> None:
@@ -171,8 +173,8 @@ class StereoVisualOdometry(VisualOdometry):
         self.right_imgs = right_imgs
 
         self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
-        # self.detector = cv2.ORB_create()
-        self.detector = cv2.AKAZE_create()
+        self.detector = detector
+        self.descriptor = descriptor
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.max_error = 6
         self.base_rot = base_rot
@@ -180,11 +182,13 @@ class StereoVisualOdometry(VisualOdometry):
         self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
 
         l_img, r_img = self.load_img(self.cnt)
-        l_kpts, l_desc = self.detector.detectAndCompute(l_img, None)
+        l_kpts = self.detector.detect(l_img, None)
+        l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
+        l_descs = np.array(l_descs, dtype=np.uint8)
         self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
 
         self.left_kpts = [l_kpts]
-        self.left_descs = [l_desc]
+        self.left_descs = [l_descs]
         self.matches = [None]
         self.matched_prev_kpts = [None]
         self.matched_curr_kpts = [None]
@@ -253,7 +257,9 @@ class StereoVisualOdometry(VisualOdometry):
     def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray):
         prev_kpts = self.left_kpts[i]
         prev_descs = self.left_descs[i]
-        curr_kpts, curr_descs = self.detector.detectAndCompute(curr_img, None)
+        curr_kpts = self.detector.detect(curr_img, None)
+        curr_kpts, curr_descs = self.descriptor.compute(curr_img, curr_kpts)
+        curr_descs = np.array(curr_descs, dtype=np.uint8)
         self.left_kpts.append(curr_kpts)
         self.left_descs.append(curr_descs)
         matches = self.bf.match(prev_descs, curr_descs)

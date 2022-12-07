@@ -1,14 +1,16 @@
+import cv2
 import glob
 import quaternion
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from tqdm import tqdm
 from vo.vo import *
+from vo.detector import *
 from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221025_1/"
+    data_dir = "./datasets/aki_20221121_1/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
@@ -18,7 +20,16 @@ if __name__ == "__main__":
     l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx, step)
     base_rot = np.eye(3)
 
-    vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, num_disp=50, base_rot=base_rot)
+    # detector = cv2.FastFeatureDetector_create()
+    # detector = HarrisCornerDetector()
+    detector = ShiTomashiCornerDetector()
+    # detector = cv2.ORB_create()
+    # detector = cv2.AKAZE_create()
+    descriptor = cv2.ORB_create()
+    # descriptor = cv2.AKAZE_create()
+    # descriptor = cv2.SIFT_create()
+    # descriptor = cv2.xfeatures2d.SURF_create()
+    vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, detector, descriptor, num_disp=50, base_rot=base_rot)
 
     # Load initial pose
     real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
@@ -39,7 +50,7 @@ if __name__ == "__main__":
             poses.append(cur_pose)
 
     estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
-    np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
-    # draw_vo_results(estimated_poses, real_poses, real_img_poses)
-    draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
+    # np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
+    draw_vo_results(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
+    # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
     vo.save_results(last_img_idx, step, f"{data_dir}/results/")

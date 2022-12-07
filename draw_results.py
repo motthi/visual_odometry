@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 if __name__ == "__main__":
     step = 1
-    data_dir = "./datasets/aki_20221121_2/"
+    data_dir = "./datasets/aki_20221121_1/"
     # data_dir = "./datasets/feature_less_plane/"
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
 
