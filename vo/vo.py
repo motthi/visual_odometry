@@ -9,12 +9,13 @@ from scipy.optimize import least_squares
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
 
-
 class VisualOdometry():
-    def __init__(self, camera_params, imgs) -> None:
+    def __init__(self, camera_params, imgs, detector, descriptor) -> None:
         self.extrinsic_l = camera_params['extrinsic']
         self.P_l = camera_params['projection']
         self.K_l = camera_params['intrinsic']
+        self.detector = detector
+        self.descriptor = descriptor
         self.left_imgs = imgs
         self.cnt = 0
 
@@ -31,11 +32,8 @@ class VisualOdometry():
 
 
 class MonocularVisualOdometry(VisualOdometry):
-    def __init__(self, left_camera_params, left_imgs) -> None:
-        super().__init__(left_camera_params, left_imgs)
-        # self.P_l = np.array([[1.0, 0.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0]])
-
-        self.orb = cv2.ORB_create(3000)
+    def __init__(self, left_camera_params, left_imgs, detector, descriptor) -> None:
+        super().__init__(left_camera_params, left_imgs, detector, descriptor)
         FLANN_INDEX_LSH = 6
         index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
         search_params = dict(checks=50)
@@ -49,19 +47,21 @@ class MonocularVisualOdometry(VisualOdometry):
 
     def get_matches(self, i):
         """
-        This function detect and compute keypoints and descriptors from the i-1'th and i'th image using the class orb object
+        This function detect and compute keypoints and descriptors from the i'th and i+1'th image using the class orb object
         Parameters
         ----------
-        i (int): The current frame
+        i (int): The index of the current frame
         Returns
         -------
-        q1 (ndarray): The good keypoints matches position in i-1'th image
-        q2 (ndarray): The good keypoints matches position in i'th image
+        q1 (ndarray): The good keypoints matches position in i'th image
+        q2 (ndarray): The good keypoints matches position in i+1'th image
         """
         # Find the keypoints and descriptors with ORB
-        kp1, des1 = self.orb.detectAndCompute(self.left_imgs[i], None)
-        kp2, des2 = self.orb.detectAndCompute(self.left_imgs[i + 1], None)
-        matches = self.flann.knnMatch(des1, des2, k=2)  # Find matches
+        kpt1 = self.detector.detect(self.left_imgs[i], None)
+        kpt2 = self.detector.detect(self.left_imgs[i + 1], None)
+        kpt1, descs1 = self.descriptor.compute(self.left_imgs[i], kpt1)
+        kpt2, descs2 = self.descriptor.compute(self.left_imgs[i + 1], kpt2)
+        matches = self.flann.knnMatch(descs1, descs2, k=2)  # Find matches
 
         # Find the matches there do not have a to high distance
         good = []
@@ -85,8 +85,8 @@ class MonocularVisualOdometry(VisualOdometry):
         # cv2.waitKey(200)
 
         # Get the image points form the good matches
-        q1 = np.float32([kp1[m.queryIdx].pt for m in good])
-        q2 = np.float32([kp2[m.trainIdx].pt for m in good])
+        q1 = np.float32([kpt1[m.queryIdx].pt for m in good])
+        q2 = np.float32([kpt2[m.trainIdx].pt for m in good])
         return q1, q2
 
     def estimate_transform_matrix(self, q1, q2):
@@ -165,7 +165,7 @@ class StereoVisualOdometry(VisualOdometry):
         num_disp: int = 300, winSize: tuple = (15, 15),
         base_rot: np.ndarray = np.eye(3)
     ) -> None:
-        super().__init__(left_camera_params, left_imgs)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor)
 
         self.extrinsic_r = right_camera_params['extrinsic']
         self.P_r = right_camera_params['projection']
@@ -173,8 +173,6 @@ class StereoVisualOdometry(VisualOdometry):
         self.right_imgs = right_imgs
 
         self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
-        self.detector = detector
-        self.descriptor = descriptor
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.max_error = 6
         self.base_rot = base_rot
@@ -264,13 +262,13 @@ class StereoVisualOdometry(VisualOdometry):
         self.left_descs.append(curr_descs)
         matches = self.bf.match(prev_descs, curr_descs)
 
-        tp1, tp2, new_matches = [], [], []
+        tp1, tp2, masked_matches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
         for i in range(min(50, len(matches))):
             tp1.append(prev_kpts[matches[i].queryIdx])
             tp2.append(curr_kpts[matches[i].trainIdx])
-            new_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
-        return tp1, tp2, new_matches
+            masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+        return tp1, tp2, masked_matches
 
     def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disps1: np.ndarray, disps2: np.ndarray, matches: list[cv2.DMatch], min_disp: float = 10.0, max_disp: float = 512.0):
         """Find correspond points in the right image and returns keypoints and descriptors in left and right image
@@ -297,8 +295,8 @@ class StereoVisualOdometry(VisualOdometry):
         # Get the disparity's for the feature points and mask for min_disp & max_disp
         disps1, mask1 = get_idxs(q1, disps1)
         disps2, mask2 = get_idxs(q2, disps2)
-
         masks = np.logical_and(mask1, mask2)    # Combine the masks
+
         kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []
         mask_cnt = 0
         for mask, kpt1, kpt2, disp1, disp2, match in zip(masks, q1, q2, disps1, disps2, matches):
