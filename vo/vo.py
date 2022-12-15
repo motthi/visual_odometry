@@ -4,6 +4,7 @@ import os
 import quaternion
 import warnings
 import numpy as np
+from tqdm import tqdm
 from scipy.optimize import least_squares
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
@@ -26,6 +27,22 @@ class VisualOdometry():
         T[:3, 3] = -t
         T[3, 3] = 1.0
         return T
+
+    def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int, step: int = 1) -> list:
+        warnings.simplefilter("ignore")
+        poses = [init_pose]
+        cur_pose = init_pose
+        for i in tqdm(range(1, last_img_idx, step)):
+            transf = self.estimate_pose()
+            if transf is not None:
+                cur_pose = cur_pose @ transf
+            else:
+                tqdm.write(f"Index {i} Failed to estimate pose")
+            poses.append(cur_pose)
+        return np.array([np.array(pose[0:3, 3]).T for pose in poses])
+
+    def estimate_pose(self):
+        raise NotImplementedError
 
     def load_img(self, i: int) -> np.ndarray:
         return self.left_imgs[i]
@@ -234,7 +251,7 @@ class StereoVisualOdometry(VisualOdometry):
         matches = new_matches
         tp1_l, tp2_l, pt1_l, pt2_l, pt1_r, pt2_r = np.array(new_tp1_l), np.array(new_tp2_l), np.array(new_pt1_l), np.array(new_pt2_l), np.array(new_pt1_r), np.array(new_pt2_r)
 
-        if len(tp1_l) <= 5 or len(tp2_l) <= 5:  # Could not track features
+        if len(tp1_l) == 0 or len(tp2_l) == 5:  # Could not track features
             warnings.warn("Cannot track features")
             self.matched_prev_kpts.append(tp1_l)
             self.matched_curr_kpts.append(tp2_l)
@@ -270,6 +287,22 @@ class StereoVisualOdometry(VisualOdometry):
             masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
         return tp1, tp2, masked_matches
 
+    # def stereoMatching(self, pt, cnt):
+    #     limg = self.left_imgs[cnt]
+    #     rimg = self.right_imgs[cnt]
+    #     win_size = 10
+    #     pt = (int(pt[0]), int(pt[1]))
+    #     limg_win = limg[pt[1] - win_size:pt[1] + win_size + 1, pt[0] - win_size:pt[0] + win_size + 1]
+    #     cost = float('inf')
+    #     disp = None
+    #     for i in range(win_size, pt[0] - win_size):
+    #         rimg_win = rimg[pt[1] - win_size:pt[1] + win_size + 1, i - win_size:i + win_size + 1]
+    #         diff = np.sum(np.abs(limg_win - rimg_win))
+    #         if diff < cost:
+    #             cost = diff
+    #             disp = pt[0] - i
+    #     return disp
+
     def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disps1: np.ndarray, disps2: np.ndarray, matches: list[cv2.DMatch], min_disp: float = 10.0, max_disp: float = 512.0):
         """Find correspond points in the right image and returns keypoints and descriptors in left and right image
 
@@ -292,9 +325,20 @@ class StereoVisualOdometry(VisualOdometry):
             disp = disp.T[q_idx[:, 0], q_idx[:, 1]]
             return disp, np.where(np.logical_and(min_disp < disp, disp < max_disp), True, False)
 
+        # def get_disps(q: list, cnt):
+        #     disps = []
+        #     masks = []
+        #     for pt in q:
+        #         disp = self.stereoMatching(pt.pt, cnt)
+        #         disps.append(disp)
+        #         masks.append(np.logical_and(min_disp < disp, disp < max_disp))
+        #     return np.array(disps), np.array(masks)
+
         # Get the disparity's for the feature points and mask for min_disp & max_disp
         disps1, mask1 = get_idxs(q1, disps1)
         disps2, mask2 = get_idxs(q2, disps2)
+        # disp1, mask1 = get_disps(q1, self.cnt)
+        # disp2, mask2 = get_disps(q2, self.cnt + 1)
         masks = np.logical_and(mask1, mask2)    # Combine the masks
 
         kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []

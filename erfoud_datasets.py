@@ -90,7 +90,7 @@ def draw_vo_results(estimated_poses, real_poses):
 
 
 if __name__ == "__main__":
-    img_len = 100
+    last_img_idx = 100
     step = 5
     base_dir = "D:/datasets/rover/erfoud/"
     lcam_params, rcam_params = camera_params(f"{base_dir}kesskess-minnie-trajectory01-2/")
@@ -100,25 +100,13 @@ if __name__ == "__main__":
     # print(rcam_params['intrinsic'])
     # print(rcam_params['extrinsic'])
     # print(rcam_params['projection'])
-    l_imgs, r_imgs = load_images(f"{base_dir}kesskess-minnie-trajectory01-2/", img_len, step)
+    l_imgs, r_imgs = load_images(f"{base_dir}kesskess-minnie-trajectory01-2/", last_img_idx, step)
 
     vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, num_disp=100, winSize=(5, 5))
 
-    real_poses = read_poses(f"{base_dir}kesskess-minnie-trajectory01-2/", img_len, step)
+    real_poses = read_poses(f"{base_dir}kesskess-minnie-trajectory01-2/", last_img_idx, step)
     init_pose = load_init_pose(f"{base_dir}kesskess-minnie-trajectory01-2/")
-    poses = [init_pose]
 
-    for i in tqdm(range(img_len)):
-        if i < 1:
-            cur_pose = init_pose
-        else:
-            transf = vo.estimate_pose()
-            cur_pose = np.matmul(cur_pose, transf)
-            poses.append(cur_pose)
+    estimated_poses = vo.estimate_all_poses(init_pose, last_img_idx, step)
 
-    # Draw keypoints
-    # for i in range(img_len - 1):
-    #     vo.draw_kpts(i)
-
-    estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
     draw_vo_results(estimated_poses, real_poses)

@@ -92,7 +92,8 @@ def read_real_poses(src: str = "D:/datasets/rover/devon_island_rover/"):
 
 
 if __name__ == "__main__":
-    img_len = 10
+    last_img_idx = 10
+    step = 1
     lcam_params, rcam_params = camera_parameters()
     # print(lcam_params['intrinsic'])
     # print(lcam_params['extrinsic'])
@@ -101,24 +102,14 @@ if __name__ == "__main__":
     # print(rcam_params['extrinsic'])
     # print(rcam_params['projection'])
     # exit(0)
-    l_imgs, r_imgs = load_images("D:/datasets/rover/devon_island_rover/", img_len, step=1, seq=0)
+    l_imgs, r_imgs = load_images("D:/datasets/rover/devon_island_rover/", last_img_idx, step=step, seq=0)
     real_poses = read_real_poses()
 
     vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs)
 
     rot, trans = rover_init_pose()
     init_pose = np.vstack((np.hstack((rot, trans)), np.array([0.0, 0.0, 0.0, 1.0])))
-    poses = [init_pose]
 
-    for i in tqdm(range(img_len)):
-        if i < 1:
-            cur_pose = init_pose
-        else:
-            transf = vo.estimate_pose()
-            cur_pose = np.matmul(cur_pose, transf)
-            poses.append(cur_pose)
+    estimated_poses = vo.estimate_all_poses(init_pose, last_img_idx, step)
 
-    estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
-    for i in range(img_len - 1):
-        vo.draw_kpts(i)
-    draw_vo_results(estimated_poses, real_poses[:img_len])
+    draw_vo_results(estimated_poses, real_poses[:last_img_idx])

@@ -22,20 +22,9 @@ if __name__ == "__main__":
     rot = R.from_quat(np.array(real_quats[0])).as_matrix()
     trans = np.array([real_poses[0]])
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
-    poses = [init_pose]
 
-    for i in tqdm(range(last_img_idx)):
-        if i < 1:
-            cur_pose = init_pose
-        else:
-            transf = vo.estimate_pose()
-            if transf is None:
-                print("Cannot estimate pose")
-                continue
-            cur_pose = np.matmul(cur_pose, transf)
-            poses.append(cur_pose)
+    estimated_poses = vo.estimate_all_poses(init_pose, last_img_idx, step)
 
-    estimated_poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
     np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
     vo.save_results(last_img_idx, step, f"{data_dir}/results/")
     draw_vo_results(estimated_poses, real_poses, real_img_poses, save_src=f"{data_dir}results.png")
