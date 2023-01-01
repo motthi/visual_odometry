@@ -274,7 +274,8 @@ class StereoVisualOdometry(VisualOdometry):
 
         tp1, tp2, masked_matches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
-        for i in range(min(50, len(matches))):
+        # for i in range(min(50, len(matches))):
+        for i in range(len(matches)):
             tp1.append(prev_kpts[matches[i].queryIdx])
             tp2.append(curr_kpts[matches[i].trainIdx])
             masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
