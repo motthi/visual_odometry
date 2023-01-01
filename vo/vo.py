@@ -227,11 +227,11 @@ class StereoVisualOdometry(VisualOdometry):
             self.cnt += 1
             return None
 
-        # Find the corresponding points in the right image
-        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.calculate_right_qs(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
-
         # Delete keypoints if needed
-        prev_kpts, curr_kpts, l_prev_pts, l_curr_pts, r_prev_pts, r_curr_pts = self.deleteFeatures(prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts, left_curr_img.shape)
+        prev_kpts, curr_kpts, dmatches = self.deleteFeatures(prev_kpts, curr_kpts, dmatches, left_curr_img.shape)
+
+        # Find the corresponding points in the right image
+        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.calculate_right_fpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             warnings.warn("Cannot track features")
@@ -243,13 +243,13 @@ class StereoVisualOdometry(VisualOdometry):
 
         # Calculate essential matrix and the correct pose
         prev_3d_pts, curr_3d_pts = self.calc_3d(l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts)
-        transformation_matrix = self.estimate_transform_matrix(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
+        transform_matrix = self.estimate_transform_matrix(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
         self.matched_prev_kpts.append(prev_kpts)
         self.matched_curr_kpts.append(curr_kpts)
         self.matches.append(dmatches)
         self.cnt += 1
-        return transformation_matrix
+        return transform_matrix
 
     def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray) -> list[list, list, list]:
         """Detect feature points and track from previous image to current image
@@ -280,28 +280,34 @@ class StereoVisualOdometry(VisualOdometry):
             masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
         return tp1, tp2, masked_matches
 
-    def deleteFeatures(self, tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r, img_shape):
-        new_tp1_l, new_tp2_l, new_matches, new_pt1_l, new_pt2_l, new_pt1_r, new_pt2_r = [], [], [], [], [], [], []
+    def deleteFeatures(self, l_prev_kpts: list[cv2.KeyPoint], l_curr_kpts: list[cv2.KeyPoint], matches: list[cv2.DMatch], img_shape: tuple) -> list[np.ndarray, np.ndarray, list[cv2.DMatch]]:
+        """Delete features if needed
+
+        Args:
+            l_prev_kpts (list[cv2.KeyPoint]): Keypoints in previous left image
+            l_curr_kpts (list[cv2.KeyPoint]): Keypoints in current left image
+            matches (list[cv2.DMatch]): List of DMatches
+            img_shape (tuple): Shape of the image
+        Returns:
+            list[np.ndarray, np.ndarray, list[cv2.DMatch]]: [Keypoints in previous left image, Keypoints in current left image, List of DMatches]
+        """
+        masked_l_prev_kpts, masked_l_curr_kpts, masked_matches = [], [], []
         cnt = 0
-        for t1, t2, match, p1_l, p1_r, p2_l, p2_r in zip(tp1_l, tp2_l, matches, pt1_l, pt1_r, pt2_l, pt2_r):
-            if p1_l[1] > 300 or p2_l[1] > 300:
+        for prev_kpt, curr_kpt, match in zip(l_prev_kpts, l_curr_kpts, matches):
+            if prev_kpt.pt[1] > 300 or curr_kpt.pt[1] > 300:
                 continue
-            if p1_l[1] < 100 or p2_l[1] < 100:
+            if prev_kpt.pt[1] < 100 or curr_kpt.pt[1] < 100:
                 continue
-            if p1_l[0] < 50 or p2_l[0] < 50:
+            if prev_kpt.pt[0] < 50 or curr_kpt.pt[0] < 50:
                 continue
-            if p1_l[0] > img_shape[1] - 50 or p2_l[0] > img_shape[1] - 50:
+            if prev_kpt.pt[0] > img_shape[1] - 50 or curr_kpt.pt[0] > img_shape[1] - 50:
                 continue
-            new_tp1_l.append(t1)
-            new_tp2_l.append(t2)
-            new_pt1_l.append(p1_l)
-            new_pt2_l.append(p2_l)
-            new_pt1_r.append(p1_r)
-            new_pt2_r.append(p2_r)
-            new_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
+            masked_l_prev_kpts.append(prev_kpt)
+            masked_l_curr_kpts.append(curr_kpt)
+            masked_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
             cnt += 1
-        matches = new_matches
-        return np.array(new_tp1_l), np.array(new_tp2_l), np.array(new_pt1_l), np.array(new_pt2_l), np.array(new_pt1_r), np.array(new_pt2_r)
+        matches = masked_matches
+        return np.array(masked_l_prev_kpts), np.array(masked_l_curr_kpts), matches
 
     # def stereoMatching(self, pt, cnt):
     #     limg = self.left_imgs[cnt]
@@ -319,17 +325,22 @@ class StereoVisualOdometry(VisualOdometry):
     #             disp = pt[0] - i
     #     return disp
 
-    def calculate_right_qs(self, q1: list[cv2.KeyPoint], q2: list[cv2.KeyPoint], disps1: np.ndarray, disps2: np.ndarray, matches: list[cv2.DMatch], min_disp: float = 10.0, max_disp: float = 512.0):
+    def calculate_right_fpts(
+            self,
+            prev_kpts: list[cv2.KeyPoint], curr_kpts: list[cv2.KeyPoint],
+            prev_disps: np.ndarray, curr_disps: np.ndarray, matches: list[cv2.DMatch],
+            min_disp: float = 10.0, max_disp: float = 512.0
+    ) -> list[list[cv2.KeyPoint], list[cv2.KeyPoint], list[cv2.DMatch], list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
         """Find correspond points in the right image and returns keypoints and descriptors in left and right image
 
         Args:
-            q1 (list[cv2.KeyPoint]): List of keypoints in the first image
-            q2 (list[cv2.KeyPoint]): List of keypoints in the second image
-            disps1 (np.ndarray): Keypoint descripoints in the first image
-            disps2 (np.ndarray): Keypoint descripoints in the second image
-            matches (list[cv2.DMatch]): _description_
-            min_disp (float, optional): _description_. Defaults to 10.0.
-            max_disp (float, optional): _description_. Defaults to 512.0.
+            prev_kpts (list[cv2.KeyPoint]): List of keypoints in the previous image
+            curr_kpts (list[cv2.KeyPoint]): List of keypoints in the current image
+            prev_disps (np.ndarray): Keypoint descripoints in the previous image
+            curr_disps (np.ndarray): Keypoint descripoints in the current image
+            matches (list[cv2.DMatch]): list of DMatches
+            min_disp (float, optional): Minimum disparity of stereo processing. Defaults to 10.0.
+            max_disp (float, optional): Max disparity of stereo processing. Defaults to 512.0.
 
         Returns:
             list[cv2.KeyPoint], list[cv2.KeyPoint], list[cv2.DMatch], list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]: List of keypoints, descriptors and masks in left and right image
@@ -351,15 +362,15 @@ class StereoVisualOdometry(VisualOdometry):
         #     return np.array(disps), np.array(masks)
 
         # Get the disparity's for the feature points and mask for min_disp & max_disp
-        disps1, mask1 = get_idxs(q1, disps1)
-        disps2, mask2 = get_idxs(q2, disps2)
+        prev_disps, mask1 = get_idxs(prev_kpts, prev_disps)
+        curr_disps, mask2 = get_idxs(curr_kpts, curr_disps)
         # disp1, mask1 = get_disps(q1, self.cnt)
         # disp2, mask2 = get_disps(q2, self.cnt + 1)
         masks = np.logical_and(mask1, mask2)    # Combine the masks
 
         kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []
         mask_cnt = 0
-        for mask, kpt1, kpt2, disp1, disp2, match in zip(masks, q1, q2, disps1, disps2, matches):
+        for mask, kpt1, kpt2, disp1, disp2, match in zip(masks, prev_kpts, curr_kpts, prev_disps, curr_disps, matches):
             if mask:
                 kpt1_l.append(kpt1)
                 kpt2_l.append(kpt2)
@@ -389,12 +400,29 @@ class StereoVisualOdometry(VisualOdometry):
             list: 3D points in previous and current image
         """
         Q1 = cv2.triangulatePoints(self.P_l, self.P_r, l_fpts_prev.T, r_fpts_prev.T)  # Triangulate points from i-1'th image
-        Q1 = np.transpose(Q1[:3] / Q1[3])   # Un-homogenize
+        Q1 = np.transpose(Q1[: 3] / Q1[3])   # Un-homogenize
         Q2 = cv2.triangulatePoints(self.P_l, self.P_r, l_fpts_curr.T, r_fpts_curr.T)  # Triangulate points from i'th image
-        Q2 = np.transpose(Q2[:3] / Q2[3])   # Un-homogenize
+        Q2 = np.transpose(Q2[: 3] / Q2[3])   # Un-homogenize
         return Q1, Q2
 
-    def estimate_transform_matrix(self, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray, max_iter: int = 100):
+    def estimate_transform_matrix(
+        self,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+        max_iter: int = 100
+    ) -> np.ndarray:
+        """Estimate transform matrix between previous and current image by least square method
+
+        Args:
+            prev_pixes (np.ndarray): Feature points in previous image
+            curr_pixes (np.ndarray): Feature points in current image
+            prev_3d_pts (np.ndarray): Corresponding 3D points in previous image
+            curr_3d_pts (np.ndarray): Corresponding 3D points in current image
+            max_iter (int, optional): Number of max iteration. Defaults to 100.
+
+        Returns:
+            np.ndarray: Transform matrix (Homogenous)
+        """
         # Initialize the min_error and early_termination counter
         min_error = float('inf')
         early_termination = 0
@@ -402,8 +430,8 @@ class StereoVisualOdometry(VisualOdometry):
 
         for _ in range(max_iter):
             # Choose 6 random feature points
-            sample_idx = np.random.choice(range(q1.shape[0]), 6)
-            sample_q1, sample_q2, sample_Q1, sample_Q2 = q1[sample_idx], q2[sample_idx], Q1[sample_idx], Q2[sample_idx]
+            sample_idx = np.random.choice(range(prev_pixes.shape[0]), 6)
+            sample_q1, sample_q2, sample_Q1, sample_Q2 = prev_pixes[sample_idx], curr_pixes[sample_idx], prev_3d_pts[sample_idx], curr_3d_pts[sample_idx]
 
             in_guess = np.zeros(6)  # Make the start guess
             opt_res = least_squares(
@@ -415,8 +443,8 @@ class StereoVisualOdometry(VisualOdometry):
             )  # Perform least squares optimization
 
             # Calculate the error for the optimized transformation
-            error = self.reprojection_residuals(opt_res.x, q1, q2, Q1, Q2)
-            error = error.reshape((Q1.shape[0] * 2, 2))
+            error = self.reprojection_residuals(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+            error = error.reshape((prev_3d_pts.shape[0] * 2, 2))
             error = np.sum(np.linalg.norm(error, axis=1))
 
             # Check if the error is less the the current min error. Save the result if it is
@@ -437,15 +465,20 @@ class StereoVisualOdometry(VisualOdometry):
         transformation_matrix = self._form_transf(R, t)  # Make the transformation matrix
         return transformation_matrix
 
-    def reprojection_residuals(self, dof: np.ndarray, q1: np.ndarray, q2: np.ndarray, Q1: np.ndarray, Q2: np.ndarray) -> np.ndarray:
+    def reprojection_residuals(
+        self,
+        dof: np.ndarray,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
+    ) -> np.ndarray:
         """Calculate residuals for reprojection
 
         Args:
             dof (np.ndarray): Transformation matrix
-            q1 (np.ndarray): Pixel points in image 1
-            q2 (np.ndarray): Pixel points in image 2
-            Q1 (np.ndarray): 3D points in image 1
-            Q2 (np.ndarray): 3D points in image 2
+            prev_pixes (np.ndarray): Pixel points in image 1
+            curr_pixes (np.ndarray): Pixel points in image 2
+            prev_3d_pts (np.ndarray): 3D points in image 1
+            curr_3d_pts (np.ndarray): 3D points in image 2
 
         Returns:
             np.ndarray: Reprojection residuals (Flattened)
@@ -461,15 +494,15 @@ class StereoVisualOdometry(VisualOdometry):
         b_projection = np.matmul(self.P_l, np.linalg.inv(transf))
 
         # Make the 3D points homogenize
-        ones = np.ones((q1.shape[0], 1))
-        Q1 = np.hstack([Q1, ones])
-        Q2 = np.hstack([Q2, ones])
+        ones = np.ones((prev_pixes.shape[0], 1))
+        prev_3d_pts = np.hstack([prev_3d_pts, ones])
+        curr_3d_pts = np.hstack([curr_3d_pts, ones])
 
-        q1_pred = Q2.dot(f_projection.T)        # Project 3D points from i'th image to i-1'th image
+        q1_pred = curr_3d_pts.dot(f_projection.T)        # Project 3D points from i'th image to i-1'th image
         q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]  # Un-homogenize
-        q2_pred = Q1.dot(b_projection.T)    # Project 3D points from i-1'th image to i'th image
+        q2_pred = prev_3d_pts.dot(b_projection.T)    # Project 3D points from i-1'th image to i'th image
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]  # Un-homogenize
-        residuals = np.vstack([q1_pred - q1.T, q2_pred - q2.T]).flatten()  # Calculate the residuals
+        residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
 
     def load_img(self, idx: int) -> list[np.ndarray, np.ndarray]:
@@ -485,7 +518,7 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[idx]
         return l_img, r_img
 
-    def save_results(self, last_img_idx: int, step: int, base_src: str = "./result"):
+    def save_results(self, last_img_idx: int, step: int, base_src: str = "./result") -> None:
         """Save VO results (Keypoints, Descriptors, Disparity, DMatches, Matched keypoints in previous image, Matched keypoints in current image)
 
         Args:
