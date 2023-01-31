@@ -8,28 +8,35 @@ from tqdm import tqdm
 
 if __name__ == "__main__":
     step = 1
-    data_dir = "./datasets/aki_20221025_1/"
+    data_dir = "./datasets/aki_20221117_1/"
     # data_dir = "./datasets/feature_less_plane/"
+
+    if not os.path.exists(f"{data_dir}"):
+        print(f"Dataset directory {data_dir} does not exist.")
+        exit()
+
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
 
     os.makedirs(f"{data_dir}disps/", exist_ok=True)
     os.makedirs(f"{data_dir}kpts/", exist_ok=True)
     os.makedirs(f"{data_dir}matched_kpts/", exist_ok=True)
 
+    print("Start exporting results...")
+    print(f"Dataset directory: {data_dir}")
     for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx, step))):
         img = cv2.imread(f"{data_dir}left/{last_img_idx:04d}.png")
 
         data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz", allow_pickle=True)
 
         # Disparities
-        disp = data['disp']
-        fig, ax = plt.subplots()
-        ax_disp = ax.imshow(disp)
-        ax.axes.xaxis.set_visible(False)
-        ax.axes.yaxis.set_visible(False)
-        plt.colorbar(ax_disp)
-        fig.savefig(f"{data_dir}disps/{last_img_idx:04d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
-        plt.close()
+        # disp = data['disp']
+        # fig, ax = plt.subplots()
+        # ax_disp = ax.imshow(disp)
+        # ax.axes.xaxis.set_visible(False)
+        # ax.axes.yaxis.set_visible(False)
+        # plt.colorbar(ax_disp)
+        # fig.savefig(f"{data_dir}disps/{last_img_idx:04d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
+        # plt.close()
 
         # All detected keypoints
         kpts = [cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in data["kpts"]]

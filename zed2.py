@@ -9,7 +9,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221117_2/"
+    data_dir = "./datasets/aki_20221117_1/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
@@ -20,9 +20,9 @@ if __name__ == "__main__":
     base_rot = np.eye(3)
 
     # detector = cv2.FastFeatureDetector_create()
-    # detector = HarrisCornerDetector()
+    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
     # detector = ShiTomashiCornerDetector()
-    detector = cv2.ORB_create()
+    # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
 
     descriptor = cv2.ORB_create()
@@ -42,7 +42,7 @@ if __name__ == "__main__":
 
     estimated_poses = vo.estimate_all_poses(init_pose, last_img_idx, step)
 
-    # np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
+    np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
     draw_vo_results(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
     # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
-    # vo.save_results(last_img_idx, step, f"{data_dir}/results/")
+    vo.save_results(last_img_idx, step, f"{data_dir}/results/")
