@@ -20,7 +20,7 @@ if __name__ == "__main__":
     base_rot = np.eye(3)
 
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
+    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.001)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -31,7 +31,14 @@ if __name__ == "__main__":
     # descriptor = cv2.xfeatures2d.SURF_create()
 
     # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor)
-    vo = StereoVisualOdometry(lcam_params, rcam_params, l_imgs, r_imgs, detector, descriptor, num_disp=50, base_rot=base_rot)
+    vo = StereoVisualOdometry(
+        lcam_params, rcam_params,
+        l_imgs, r_imgs,
+        detector, descriptor, num_disp=50,
+        base_rot=base_rot,
+        method="svd",
+        use_disp=False
+    )
 
     # Load initial pose
     real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")

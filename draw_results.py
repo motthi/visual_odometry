@@ -8,7 +8,7 @@ from tqdm import tqdm
 
 if __name__ == "__main__":
     step = 1
-    data_dir = "./datasets/aki_20221117_1/"
+    data_dir = "./datasets/aki_20221025_1/"
     # data_dir = "./datasets/feature_less_plane/"
 
     if not os.path.exists(f"{data_dir}"):
@@ -23,7 +23,7 @@ if __name__ == "__main__":
 
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
-    for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx, step))):
+    for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx - step, step))):
         img = cv2.imread(f"{data_dir}left/{last_img_idx:04d}.png")
 
         data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz", allow_pickle=True)

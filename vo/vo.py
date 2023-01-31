@@ -182,28 +182,32 @@ class StereoVisualOdometry(VisualOdometry):
         left_camera_params, right_camera_params, left_imgs, right_imgs,
         detector, descriptor,
         num_disp: int = 300, winSize: tuple = (15, 15),
-        base_rot: np.ndarray = np.eye(3)
+        base_rot: np.ndarray = np.eye(3),
+        method="svd", use_disp=False
     ) -> None:
         super().__init__(left_camera_params, left_imgs, detector, descriptor)
+        self.right_imgs = right_imgs
+        self.method = method
+        self.use_disp = use_disp
 
+        # Load camera params
         self.extrinsic_r = right_camera_params['extrinsic']
         self.P_r = right_camera_params['projection']
         self.K_r = right_camera_params['intrinsic']
-        self.right_imgs = right_imgs
 
-        self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
         self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         self.max_error = 6
         self.base_rot = base_rot
-
         self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
 
+        # Initial processing
         l_img, r_img = self.load_img(self.cnt)
         l_kpts = self.detector.detect(l_img, None)
         l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
         l_descs = np.array(l_descs, dtype=np.uint8)
-        self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
-
+        if use_disp:
+            self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
+            self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
         self.left_kpts = [l_kpts]
         self.left_descs = [l_descs]
         self.matches = [None]
@@ -215,45 +219,42 @@ class StereoVisualOdometry(VisualOdometry):
         left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
 
         # Calculate disparity
-        self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
+        if self.use_disp:
+            self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
 
         # Detect and track keypoints
-        prev_kpts, curr_kpts, dmatches = self.detectAndTrackFeatures(self.cnt, left_curr_img)
+        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
 
         # Delete keypoints if needed
-        prev_kpts, curr_kpts, dmatches = self.deleteFeatures(prev_kpts, curr_kpts, dmatches, left_curr_img.shape)
+        prev_kpts, curr_kpts, dmatches = self.delete_kpts(prev_kpts, curr_kpts, dmatches, left_curr_img.shape)
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
-            warnings.warn("Cannot track features")
-            self.matched_prev_kpts.append(prev_kpts)
-            self.matched_curr_kpts.append(curr_kpts)
-            self.matches.append(dmatches)
-            self.cnt += 1
+            self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
 
         # Find the corresponding points in the right image
-        # prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.calculate_right_fpts(prev_kpts, curr_kpts, None, None, dmatches)
-        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.calculate_right_fpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
+        if self.use_disp:
+            prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
+        else:
+            prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, None, None, dmatches)
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
-            warnings.warn("Cannot track features")
-            self.matched_prev_kpts.append(prev_kpts)
-            self.matched_curr_kpts.append(curr_kpts)
-            self.matches.append(dmatches)
-            self.cnt += 1
+            self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
 
         # Calculate essential matrix and the correct pose
         prev_3d_pts, curr_3d_pts = self.calc_3d(l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts)
-        transform_matrix = self.estimate_transform_matrix(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
-        self.matched_prev_kpts.append(prev_kpts)
-        self.matched_curr_kpts.append(curr_kpts)
-        self.matches.append(dmatches)
+        if self.method == "svd":
+            transform_matrix = self.svd_based_translation_estimation(prev_3d_pts, curr_3d_pts)
+        elif self.method == "greedy":
+            transform_matrix = self.greedy_translation_estimation(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
+
+        self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
         self.cnt += 1
         return transform_matrix
 
-    def detectAndTrackFeatures(self, i: int, curr_img: np.ndarray) -> list[list, list, list]:
+    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[list, list, list]:
         """Detect feature points and track from previous image to current image
 
         Args:
@@ -283,7 +284,7 @@ class StereoVisualOdometry(VisualOdometry):
             masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
         return tp1, tp2, masked_matches
 
-    def deleteFeatures(self, l_prev_kpts: list[cv2.KeyPoint], l_curr_kpts: list[cv2.KeyPoint], matches: list[cv2.DMatch], img_shape: tuple) -> list[np.ndarray, np.ndarray, list[cv2.DMatch]]:
+    def delete_kpts(self, l_prev_kpts: list[cv2.KeyPoint], l_curr_kpts: list[cv2.KeyPoint], matches: list[cv2.DMatch], img_shape: tuple) -> list[np.ndarray, np.ndarray, list[cv2.DMatch]]:
         """Delete features if needed
 
         Args:
@@ -312,22 +313,7 @@ class StereoVisualOdometry(VisualOdometry):
         matches = masked_matches
         return np.array(masked_l_prev_kpts), np.array(masked_l_curr_kpts), matches
 
-    def stereoMatching(self, pts, cnt):
-        limg = cv2.cvtColor(self.left_imgs[cnt], cv2.COLOR_BGR2GRAY)
-        rimg = cv2.cvtColor(self.right_imgs[cnt], cv2.COLOR_BGR2GRAY)
-        WIN_SIZE = 3
-        disps = []
-        for pt in pts:
-            pt_int = (int(pt[0]), int(pt[1]))
-            templ = limg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, pt_int[0] - WIN_SIZE:pt_int[0] + WIN_SIZE]
-            result = cv2.matchTemplate(rimg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, :pt_int[0]], templ, cv2.TM_SQDIFF)
-            # cv2.TM_CCOEFF_NORMEDの場合は第4戻り値を使う
-            _, _, loc, _ = cv2.minMaxLoc(result)
-            disp = pt[0] - loc[0] - WIN_SIZE // 2       # テンプレートの中心に来るように補正
-            disps.append(disp)
-        return disps
-
-    def calculate_right_fpts(
+    def find_right_kpts(
             self,
             prev_kpts: list[cv2.KeyPoint], curr_kpts: list[cv2.KeyPoint],
             prev_disps: np.ndarray, curr_disps: np.ndarray, matches: list[cv2.DMatch],
@@ -356,17 +342,19 @@ class StereoVisualOdometry(VisualOdometry):
 
         def get_disps(q: list, cnt):
             q_pts = np.array([q_.pt for q_ in q])
-            disps = self.stereoMatching(q_pts, cnt)
+            disps = self.stereo_match(q_pts, cnt)
             masks = []
             for disp in disps:
                 masks.append(np.logical_and(min_disp < disp, disp < max_disp))
             return np.array(disps), np.array(masks)
 
         # Get the disparity's for the feature points and mask for min_disp & max_disp
-        prev_disps, mask1 = get_idxs(prev_kpts, prev_disps)
-        curr_disps, mask2 = get_idxs(curr_kpts, curr_disps)
-        # prev_disps, mask1 = get_disps(prev_kpts, self.cnt)
-        # curr_disps, mask2 = get_disps(curr_kpts, self.cnt + 1)
+        if self.use_disp:
+            prev_disps, mask1 = get_idxs(prev_kpts, prev_disps)
+            curr_disps, mask2 = get_idxs(curr_kpts, curr_disps)
+        else:
+            prev_disps, mask1 = get_disps(prev_kpts, self.cnt)
+            curr_disps, mask2 = get_disps(curr_kpts, self.cnt + 1)
         masks = np.logical_and(mask1, mask2)    # Combine the masks
 
         kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []
@@ -388,8 +376,22 @@ class StereoVisualOdometry(VisualOdometry):
         q2_l = np.array(q2_l)
         q1_r = np.array(q1_r)
         q2_r = np.array(q2_r)
-
         return list(kpt1_l), list(kpt2_l), matches_masked, q1_l, q1_r, q2_l, q2_r
+
+    def stereo_match(self, pts, cnt):
+        limg = cv2.cvtColor(self.left_imgs[cnt], cv2.COLOR_BGR2GRAY)
+        rimg = cv2.cvtColor(self.right_imgs[cnt], cv2.COLOR_BGR2GRAY)
+        WIN_SIZE = 3
+        disps = []
+        for pt in pts:
+            pt_int = (int(pt[0]), int(pt[1]))
+            templ = limg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, pt_int[0] - WIN_SIZE:pt_int[0] + WIN_SIZE]
+            result = cv2.matchTemplate(rimg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, :pt_int[0]], templ, cv2.TM_SQDIFF)
+            # cv2.TM_CCOEFF_NORMEDの場合は第4戻り値を使う
+            _, _, loc, _ = cv2.minMaxLoc(result)
+            disp = pt[0] - loc[0] - WIN_SIZE // 2       # テンプレートの中心に来るように補正
+            disps.append(disp)
+        return disps
 
     def calc_3d(self, l_fpts_prev: np.ndarray, r_fpts_prev: np.ndarray, l_fpts_curr: np.ndarray, r_fpts_curr: np.ndarray) -> list[np.ndarray]:
         """Calculate 3D position from correspoind points in left and right image
@@ -409,25 +411,10 @@ class StereoVisualOdometry(VisualOdometry):
         Q2 = np.transpose(Q2[: 3] / Q2[3])   # Un-homogenize
         return Q1, Q2
 
-    def estimate_transform_matrix(
+    def svd_based_translation_estimation(
         self,
-        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
         prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
-        max_iter: int = 100
     ) -> np.ndarray:
-        """Estimate transform matrix between previous and current image by least square method
-
-        Args:
-            prev_pixes (np.ndarray): Feature points in previous image
-            curr_pixes (np.ndarray): Feature points in current image
-            prev_3d_pts (np.ndarray): Corresponding 3D points in previous image
-            curr_3d_pts (np.ndarray): Corresponding 3D points in current image
-            max_iter (int, optional): Number of max iteration. Defaults to 100.
-
-        Returns:
-            np.ndarray: Transform matrix (Homogenous)
-        """
-        # Create homogeneous
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
         avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
@@ -443,53 +430,57 @@ class StereoVisualOdometry(VisualOdometry):
         T[: 3, 3] = -(self.base_rot @ t[: 3, 0])
         return T
 
+    def greedy_translation_estimation(
+        self,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+        max_iter: int = 100
+    ) -> np.ndarray:
         # Initialize the min_error and early_termination counter
-        # min_error = float('inf')
-        # early_termination = 0
-        # early_termination_thd = 5
-        # for _ in range(max_iter):
-        #     # Choose 6 random feature points
-        #     sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
-        #     sample_q1, sample_q2, sample_Q1, sample_Q2 = prev_pixes[sample_idx], curr_pixes[sample_idx], prev_3d_pts[sample_idx], curr_3d_pts[sample_idx]
+        min_error = float('inf')
+        early_termination = 0
+        early_termination_thd = 5
+        for _ in range(max_iter):
+            # Choose 6 random feature points
+            sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
+            sample_q1, sample_q2, sample_Q1, sample_Q2 = prev_pixes[sample_idx], curr_pixes[sample_idx], prev_3d_pts[sample_idx], curr_3d_pts[sample_idx]
 
-        #     in_guess = np.zeros(6)  # Make the start guess
-        #     opt_res = least_squares(
-        #         self.reprojection_residuals,  # Function to minimize
-        #         in_guess,             # Initial guess
-        #         method='lm',        # Levenberg-Marquardt algorithm
-        #         max_nfev=200,      # Max number of function evaluations
-        #         args=(sample_q1, sample_q2, sample_Q1, sample_Q2)  # Additional arguments to pass to the function
-        #     )  # Perform least squares optimization
+            in_guess = np.zeros(6)  # Make the start guess
+            opt_res = least_squares(
+                self.reprojection_residuals,  # Function to minimize
+                in_guess,             # Initial guess
+                method='lm',        # Levenberg-Marquardt algorithm
+                max_nfev=200,      # Max number of function evaluations
+                args=(sample_q1, sample_q2, sample_Q1, sample_Q2)  # Additional arguments to pass to the function
+            )  # Perform least squares optimization
 
-        #     # Calculate the error for the optimized transformation
-        #     error = self.reprojection_residuals(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-        #     error = error.reshape((prev_3d_pts.shape[0] * 2, 2))
-        #     error = np.sum(np.linalg.norm(error, axis=1))
+            # Calculate the error for the optimized transformation
+            error = self.reprojection_residuals(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+            error = error.reshape((prev_3d_pts.shape[0] * 2, 2))
+            error = np.sum(np.linalg.norm(error, axis=1))
 
-        #     # Check if the error is less the the current min error. Save the result if it is
-        #     if error < min_error:
-        #         min_error = error
-        #         out_pose = opt_res.x
-        #         ave1 = np.mean(sample_Q1, axis=0).reshape((3, -1)).T
-        #         ave2 = np.mean(sample_Q2, axis=0).reshape((3, -1)).T
-        #         U, S, V = np.linalg.svd((sample_Q1 - ave1).T @ (sample_Q2 - ave2))
-        #         R = V.T @ U.T
-        #         if np.linalg.det(R_) < 0:
-        #             return None
-        #         t = (ave2.T - R @ ave1.T).T[0]
-        #         early_termination = 0
-        #     else:
-        #         early_termination += 1
-        #     if early_termination == early_termination_thd:
-        #         # If we have not fund any better result in early_termination_threshold iterations
-        #         break
-        # r = out_pose[:3]    # Get the rotation vector
-        # R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
-        # t = out_pose[3:]    # Get the translation vector
+            # Check if the error is less the the current min error. Save the result if it is
+            if error < min_error:
+                min_error = error
+                out_pose = opt_res.x
+                early_termination = 0
+            else:
+                early_termination += 1
+            if early_termination == early_termination_thd:
+                # If we have not fund any better result in early_termination_threshold iterations
+                break
+        r = out_pose[:3]    # Get the rotation vector
+        R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
+        t = out_pose[3:]    # Get the translation vector
         t = self.base_rot @ t
-        transformation_matrix = self._form_transf(R, t)  # Make the transformation matrix
-        # tqdm.write(f"{np.linalg.norm(Rotation.from_matrix(R_ @ R.T).as_rotvec()):.4f}\t{np.linalg.norm(t_ - t):.4f}")
-        return transformation_matrix
+        T = self._form_transf(R, t)  # Make the transformation matrix
+        return T
+
+    def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
+        warnings.warn("Cannot track features")
+        self.matched_prev_kpts.append(prev_kpts)
+        self.matched_curr_kpts.append(curr_kpts)
+        self.matches.append(dmatches)
 
     def reprojection_residuals(
         self,
