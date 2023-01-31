@@ -34,12 +34,12 @@ class VisualOdometry():
         warnings.simplefilter("ignore")
         poses = [init_pose]
         cur_pose = init_pose
-        for i in tqdm(range(1, last_img_idx, step)):
+        for idx in tqdm(range(1, last_img_idx - step, step)):
             transf = self.estimate_pose()
             if transf is not None:
                 cur_pose = cur_pose @ transf
             else:
-                tqdm.write(f"Index {i:03d} : Failed to estimate pose")
+                tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
             poses.append(cur_pose)
         return np.array([np.array(pose[0:3, 3]).T for pose in poses])
 
@@ -427,14 +427,21 @@ class StereoVisualOdometry(VisualOdometry):
         Returns:
             np.ndarray: Transform matrix (Homogenous)
         """
-        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=0).reshape((3, -1)).T
-        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=0).reshape((3, -1)).T
-        U, S, V = np.linalg.svd((prev_3d_pts - avg_prev_3d_pts).T @ (curr_3d_pts - avg_curr_3d_pts))
+        # Create homogeneous
+        prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
+        curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
+        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
+        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
+
+        U, S, V = np.linalg.svd((prev_3d_pts - avg_prev_3d_pts) @ (curr_3d_pts - avg_curr_3d_pts).T)
         R = V.T @ U.T
         if np.linalg.det(R) < 0:
             return None
-        t = (avg_curr_3d_pts.T - R @ avg_prev_3d_pts.T).T[0]
-        t = self.base_rot @ t
+        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        T = np.eye(4)
+        T[: 3, : 3] = R[: 3, : 3].T
+        T[: 3, 3] = -(self.base_rot @ t[: 3, 0])
+        return T
 
         # Initialize the min_error and early_termination counter
         # min_error = float('inf')
@@ -442,16 +449,16 @@ class StereoVisualOdometry(VisualOdometry):
         # early_termination_thd = 5
         # for _ in range(max_iter):
         #     # Choose 6 random feature points
-        #     sample_idx = np.random.choice(range(prev_pixes.shape[0]), 6)
+        #     sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
         #     sample_q1, sample_q2, sample_Q1, sample_Q2 = prev_pixes[sample_idx], curr_pixes[sample_idx], prev_3d_pts[sample_idx], curr_3d_pts[sample_idx]
 
         #     in_guess = np.zeros(6)  # Make the start guess
         #     opt_res = least_squares(
-        #         self.reprojection_residuals,
-        #         in_guess,
-        #         method='lm',
-        #         max_nfev=200,
-        #         args=(sample_q1, sample_q2, sample_Q1, sample_Q2)
+        #         self.reprojection_residuals,  # Function to minimize
+        #         in_guess,             # Initial guess
+        #         method='lm',        # Levenberg-Marquardt algorithm
+        #         max_nfev=200,      # Max number of function evaluations
+        #         args=(sample_q1, sample_q2, sample_Q1, sample_Q2)  # Additional arguments to pass to the function
         #     )  # Perform least squares optimization
 
         #     # Calculate the error for the optimized transformation
@@ -463,6 +470,13 @@ class StereoVisualOdometry(VisualOdometry):
         #     if error < min_error:
         #         min_error = error
         #         out_pose = opt_res.x
+        #         ave1 = np.mean(sample_Q1, axis=0).reshape((3, -1)).T
+        #         ave2 = np.mean(sample_Q2, axis=0).reshape((3, -1)).T
+        #         U, S, V = np.linalg.svd((sample_Q1 - ave1).T @ (sample_Q2 - ave2))
+        #         R = V.T @ U.T
+        #         if np.linalg.det(R_) < 0:
+        #             return None
+        #         t = (ave2.T - R @ ave1.T).T[0]
         #         early_termination = 0
         #     else:
         #         early_termination += 1
@@ -472,8 +486,9 @@ class StereoVisualOdometry(VisualOdometry):
         # r = out_pose[:3]    # Get the rotation vector
         # R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
         # t = out_pose[3:]    # Get the translation vector
-        # t = self.base_rot @ t
+        t = self.base_rot @ t
         transformation_matrix = self._form_transf(R, t)  # Make the transformation matrix
+        # tqdm.write(f"{np.linalg.norm(Rotation.from_matrix(R_ @ R.T).as_rotvec()):.4f}\t{np.linalg.norm(t_ - t):.4f}")
         return transformation_matrix
 
     def reprojection_residuals(
@@ -538,7 +553,7 @@ class StereoVisualOdometry(VisualOdometry):
             base_src (str, optional): Directory to be stored. Defaults to "./result".
         """
         os.makedirs(base_src, exist_ok=True)
-        for i, img_idx in enumerate(range(0, last_img_idx, step)):
+        for i, img_idx in enumerate(range(0, last_img_idx - step, step)):
             kpts = self.left_kpts[i]
             np.savez(
                 f"{base_src}/{img_idx:04d}.npz",
