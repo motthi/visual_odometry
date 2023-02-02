@@ -4,6 +4,7 @@ import quaternion
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from vo.vo import *
+from vo.draw import draw_vo_results
 from vo.detector import *
 from vo.utils import *
 from vo.datasets.zed2 import *

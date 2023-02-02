@@ -208,6 +208,8 @@ class StereoVisualOdometry(VisualOdometry):
         if use_disp:
             self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
             self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
+        else:
+            self.disparities = [None]
         self.left_kpts = [l_kpts]
         self.left_descs = [l_descs]
         self.matches = [None]
@@ -221,6 +223,8 @@ class StereoVisualOdometry(VisualOdometry):
         # Calculate disparity
         if self.use_disp:
             self.disparities.append(np.divide(self.disparity.compute(left_curr_img, right_curr_img).astype(np.float32), 16))
+        else:
+            self.disparities.append(None)
 
         # Detect and track keypoints
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
@@ -233,11 +237,7 @@ class StereoVisualOdometry(VisualOdometry):
             return None
 
         # Find the corresponding points in the right image
-        if self.use_disp:
-            prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
-        else:
-            prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, None, None, dmatches)
-
+        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
@@ -550,7 +550,7 @@ class StereoVisualOdometry(VisualOdometry):
                 f"{base_src}/{img_idx:04d}.npz",
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
-                # disp=self.disparities[i],
+                disp=self.disparities[i],
                 matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
                 matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
                 matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,

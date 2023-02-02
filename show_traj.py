@@ -1,4 +1,5 @@
-from vo.utils import draw_vo_results, load_result_poses
+from vo.draw import draw_vo_results
+from vo.utils import load_result_poses
 
 if __name__ == "__main__":
     data_dir = "./datasets/aki_20221117_1/"
