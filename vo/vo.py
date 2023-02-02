@@ -180,13 +180,14 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        detector, descriptor,
+        detector, descriptor, img_mask=None,
         num_disp: int = 300, winSize: tuple = (15, 15),
         base_rot: np.ndarray = np.eye(3),
         method="svd", use_disp=False
     ) -> None:
         super().__init__(left_camera_params, left_imgs, detector, descriptor)
         self.right_imgs = right_imgs
+        self.img_mask = img_mask
         self.method = method
         self.use_disp = use_disp
 
@@ -229,9 +230,6 @@ class StereoVisualOdometry(VisualOdometry):
         # Detect and track keypoints
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
 
-        # Delete keypoints if needed
-        prev_kpts, curr_kpts, dmatches = self.delete_kpts(prev_kpts, curr_kpts, dmatches, left_curr_img.shape)
-
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
@@ -267,7 +265,7 @@ class StereoVisualOdometry(VisualOdometry):
         prev_kpts = self.left_kpts[i]
         prev_descs = self.left_descs[i]
 
-        curr_kpts = self.detector.detect(curr_img, None)
+        curr_kpts = self.detector.detect(curr_img, self.img_mask)
         curr_kpts, curr_descs = self.descriptor.compute(curr_img, curr_kpts)
         curr_descs = np.array(curr_descs, dtype=np.uint8)
 
@@ -283,35 +281,6 @@ class StereoVisualOdometry(VisualOdometry):
             tp2.append(curr_kpts[matches[i].trainIdx])
             masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
         return tp1, tp2, masked_matches
-
-    def delete_kpts(self, l_prev_kpts: list[cv2.KeyPoint], l_curr_kpts: list[cv2.KeyPoint], matches: list[cv2.DMatch], img_shape: tuple) -> list[np.ndarray, np.ndarray, list[cv2.DMatch]]:
-        """Delete features if needed
-
-        Args:
-            l_prev_kpts (list[cv2.KeyPoint]): Keypoints in previous left image
-            l_curr_kpts (list[cv2.KeyPoint]): Keypoints in current left image
-            matches (list[cv2.DMatch]): List of DMatches
-            img_shape (tuple): Shape of the image
-        Returns:
-            list[np.ndarray, np.ndarray, list[cv2.DMatch]]: [Keypoints in previous left image, Keypoints in current left image, List of DMatches]
-        """
-        masked_l_prev_kpts, masked_l_curr_kpts, masked_matches = [], [], []
-        cnt = 0
-        for prev_kpt, curr_kpt, match in zip(l_prev_kpts, l_curr_kpts, matches):
-            if prev_kpt.pt[1] > 300 or curr_kpt.pt[1] > 300:
-                continue
-            if prev_kpt.pt[1] < 100 or curr_kpt.pt[1] < 100:
-                continue
-            if prev_kpt.pt[0] < 50 or curr_kpt.pt[0] < 50:
-                continue
-            if prev_kpt.pt[0] > img_shape[1] - 50 or curr_kpt.pt[0] > img_shape[1] - 50:
-                continue
-            masked_l_prev_kpts.append(prev_kpt)
-            masked_l_curr_kpts.append(curr_kpt)
-            masked_matches.append(cv2.DMatch(cnt, cnt, match.imgIdx, match.distance))
-            cnt += 1
-        matches = masked_matches
-        return np.array(masked_l_prev_kpts), np.array(masked_l_curr_kpts), matches
 
     def find_right_kpts(
             self,

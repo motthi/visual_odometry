@@ -31,11 +31,18 @@ if __name__ == "__main__":
     # descriptor = cv2.SIFT_create()
     # descriptor = cv2.xfeatures2d.SURF_create()
 
+    D = 50
+    img_mask = np.full(l_imgs[0].shape[:2], 255, dtype=np.uint8)
+    img_mask[:D, :] = 0
+    img_mask[-D:, :] = 0
+    img_mask[:, :D] = 0
+    img_mask[:, -D:] = 0
+
     # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor)
     vo = StereoVisualOdometry(
         lcam_params, rcam_params,
         l_imgs, r_imgs,
-        detector, descriptor, num_disp=50,
+        detector, descriptor, img_mask=img_mask, num_disp=50,
         base_rot=base_rot,
         method="svd",
         use_disp=False
