@@ -14,14 +14,18 @@ def drawDisparties(disp) -> Figure:
     return fig
 
 
-def drawDetectedKeypoints(img: np.ndarray, kpts, descs):
+def drawDetectedKeypoints(img: np.ndarray, kpts: list, descs: list, flag: int = cv2.DrawMatchesFlags_DRAW_RICH_KEYPOINTS, c: tuple = (0, 255, 0), ps: int = 3) -> np.ndarray:
     kpts = [cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in kpts]
     kpt_img = img.copy()
-    cv2.drawKeypoints(img, kpts, kpt_img, color=(0, 255, 0), flags=4)
+    if flag == "p" or flag == "points":
+        for kpt in kpts:
+            cv2.circle(kpt_img, (int(kpt.pt[0]), int(kpt.pt[1])), ps, (0, 255, 0), -1)
+    else:
+        cv2.drawKeypoints(kpt_img, kpts, kpt_img, color=(0, 255, 0), flags=flag)
     return kpt_img
 
 
-def drawMatchedKpts(img: np.ndarray, prev_pts, curr_pts):
+def drawMatchedKpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint]):
     prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in prev_pts])
     curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in curr_pts])
     match_img = img.copy()

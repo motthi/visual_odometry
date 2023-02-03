@@ -203,7 +203,7 @@ class StereoVisualOdometry(VisualOdometry):
 
         # Initial processing
         l_img, r_img = self.load_img(self.cnt)
-        l_kpts = self.detector.detect(l_img, None)
+        l_kpts = self.detector.detect(l_img, self.img_mask)
         l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
         l_descs = np.array(l_descs, dtype=np.uint8)
         if use_disp:
@@ -252,7 +252,7 @@ class StereoVisualOdometry(VisualOdometry):
         self.cnt += 1
         return transform_matrix
 
-    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[list, list, list]:
+    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
         """Detect feature points and track from previous image to current image
 
         Args:
@@ -273,14 +273,14 @@ class StereoVisualOdometry(VisualOdometry):
         self.left_descs.append(curr_descs)
         matches = self.bf.match(prev_descs, curr_descs)
 
-        tp1, tp2, masked_matches = [], [], []
+        tp1, tp2, masked_dmatches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
         # for i in range(min(50, len(matches))):
         for i in range(len(matches)):
             tp1.append(prev_kpts[matches[i].queryIdx])
             tp2.append(curr_kpts[matches[i].trainIdx])
-            masked_matches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
-        return tp1, tp2, masked_matches
+            masked_dmatches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+        return np.array(tp1), np.array(tp2), np.array(masked_dmatches)
 
     def find_right_kpts(
             self,
@@ -446,7 +446,6 @@ class StereoVisualOdometry(VisualOdometry):
         return T
 
     def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
-        warnings.warn("Cannot track features")
         self.matched_prev_kpts.append(prev_kpts)
         self.matched_curr_kpts.append(curr_kpts)
         self.matches.append(dmatches)
