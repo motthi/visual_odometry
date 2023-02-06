@@ -21,6 +21,7 @@ class VisualOdometry():
         self.descriptor = descriptor
         self.left_imgs = imgs
         self.cnt = 0
+        self.Ts = [None]
 
     @staticmethod
     def _form_transf(R, t):
@@ -249,6 +250,7 @@ class StereoVisualOdometry(VisualOdometry):
             transform_matrix = self.greedy_translation_estimation(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+        self.Ts.append(transform_matrix)
         self.cnt += 1
         return transform_matrix
 
@@ -503,13 +505,13 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[idx]
         return l_img, r_img
 
-    def save_results(self, last_img_idx: int, step: int, base_src: str = "./result") -> None:
+    def save_results(self, last_img_idx: int, step: int, base_src: str = "./npzt") -> None:
         """Save VO results (Keypoints, Descriptors, Disparity, DMatches, Matched keypoints in previous image, Matched keypoints in current image)
 
         Args:
             last_img_idx (int): Last image index
             step (int): VO execution step
-            base_src (str, optional): Directory to be stored. Defaults to "./result".
+            base_src (str, optional): Directory to be stored. Defaults to "./npz".
         """
         os.makedirs(base_src, exist_ok=True)
         for i, img_idx in enumerate(range(0, last_img_idx - step, step)):
@@ -519,6 +521,7 @@ class StereoVisualOdometry(VisualOdometry):
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 disp=self.disparities[i],
+                translation=self.Ts[i],
                 matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
                 matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
                 matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,

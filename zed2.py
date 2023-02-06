@@ -21,7 +21,7 @@ if __name__ == "__main__":
     base_rot = np.eye(3)
 
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.001)
+    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -34,7 +34,7 @@ if __name__ == "__main__":
     D = 50
     img_mask = np.full(l_imgs[0].shape[:2], 255, dtype=np.uint8)
     img_mask[:D, :] = 0
-    img_mask[-D:, :] = 0
+    img_mask[-100:, :] = 0
     img_mask[:, :D] = 0
     img_mask[:, -D:] = 0
 
@@ -60,4 +60,4 @@ if __name__ == "__main__":
     np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
     draw_vo_results(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
     # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
-    vo.save_results(last_img_idx, step, f"{data_dir}/results/")
+    vo.save_results(last_img_idx, step, f"{data_dir}/npz/")

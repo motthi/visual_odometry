@@ -24,7 +24,7 @@ if __name__ == "__main__":
     print(f"Dataset directory: {data_dir}")
     for i, last_img_idx in enumerate(tqdm(range(0, last_img_idx - step, step))):
         img = cv2.imread(f"{data_dir}left/{last_img_idx:04d}.png")
-        data = np.load(f"{data_dir}results/{last_img_idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{data_dir}npz/{last_img_idx:04d}.npz", allow_pickle=True)
 
         # Disparities
         if not f"{data['disp']}" == "None":
