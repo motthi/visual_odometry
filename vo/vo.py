@@ -264,25 +264,31 @@ class StereoVisualOdometry(VisualOdometry):
         Returns:
             list[list, list, list]: [Keypoints in previous image, Keypoints in current image, DMatches]
         """
+        curr_kpts, curr_descs = self.detect_kpts(curr_img)
+        tp1, tp2, dmatches = self.track_kpts(i, curr_kpts, curr_descs)
+        return tp1, tp2, dmatches
+
+    def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
+        kpts = self.detector.detect(img, self.img_mask)
+        kpts, descs = self.descriptor.compute(img, kpts)
+        descs = np.array(descs, dtype=np.uint8)
+        self.left_kpts.append(kpts)
+        self.left_descs.append(descs)
+        return kpts, descs
+
+    def track_kpts(self, i: int, curr_kpts: np.ndarray, curr_descs: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
         prev_kpts = self.left_kpts[i]
         prev_descs = self.left_descs[i]
-
-        curr_kpts = self.detector.detect(curr_img, self.img_mask)
-        curr_kpts, curr_descs = self.descriptor.compute(curr_img, curr_kpts)
-        curr_descs = np.array(curr_descs, dtype=np.uint8)
-
-        self.left_kpts.append(curr_kpts)
-        self.left_descs.append(curr_descs)
         matches = self.bf.match(prev_descs, curr_descs)
 
-        tp1, tp2, masked_dmatches = [], [], []
+        masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
         # for i in range(min(50, len(matches))):
         for i in range(len(matches)):
-            tp1.append(prev_kpts[matches[i].queryIdx])
-            tp2.append(curr_kpts[matches[i].trainIdx])
+            masked_prev_kpts.append(prev_kpts[matches[i].queryIdx])
+            masked_curr_kpts.append(curr_kpts[matches[i].trainIdx])
             masked_dmatches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
-        return np.array(tp1), np.array(tp2), np.array(masked_dmatches)
+        return np.array(masked_prev_kpts), np.array(masked_curr_kpts), np.array(masked_dmatches)
 
     def find_right_kpts(
             self,

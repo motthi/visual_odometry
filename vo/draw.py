@@ -51,9 +51,9 @@ def draw_vo_results(
 ):
     fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
-        ax.plot(truth_poses[:, 0], truth_poses[:, 1], truth_poses[:, 2], c='#ff7f0e', label='Truth')
         ax.plot(truth_poses[0][0], truth_poses[0][1], truth_poses[0][2], 'o', c="r", label="Start")
         ax.plot(truth_poses[-1][0], truth_poses[-1][1], truth_poses[-1][2], 'x', c="r", label="End")
+        ax.plot(truth_poses[:, 0], truth_poses[:, 1], truth_poses[:, 2], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
     if draw_data == "all":
