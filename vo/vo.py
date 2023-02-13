@@ -6,6 +6,7 @@ import warnings
 import numpy as np
 from tqdm import tqdm
 from scipy.optimize import least_squares
+from scipy.spatial.transform import Rotation as R
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -42,7 +43,9 @@ class VisualOdometry():
             else:
                 tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
             poses.append(cur_pose)
-        return np.array([np.array(pose[0:3, 3]).T for pose in poses])
+        quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in poses])
+        poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
+        return poses, quats
 
     def estimate_pose(self):
         raise NotImplementedError

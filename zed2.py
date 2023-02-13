@@ -4,13 +4,13 @@ import quaternion
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from vo.vo import *
-from vo.draw import draw_vo_results
+from vo.draw import draw_vo_poses
 from vo.detector import *
 from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221117_1/"
+    data_dir = "./datasets/aki_20221021_1/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
@@ -37,6 +37,18 @@ if __name__ == "__main__":
     img_mask[-100:, :] = 0
     img_mask[:, :D] = 0
     img_mask[:, -D:] = 0
+    # Load initial pose
+    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
+    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv", step)
+
+    # l_imgs = l_imgs[10:]
+    # r_imgs = r_imgs[10:]
+    # last_img_idx -= 10
+    # real_img_poses = real_img_poses[10:]
+    # real_img_quats = real_img_quats[10:]
+    rot = R.from_quat(real_img_quats[0]).as_matrix()
+    trans = np.array([real_img_poses[0]])
+    init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
 
     # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor)
     vo = StereoVisualOdometry(
@@ -48,16 +60,14 @@ if __name__ == "__main__":
         use_disp=False
     )
 
-    # Load initial pose
-    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
-    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv", step)
-    rot = R.from_quat(np.array(real_quats[0])).as_matrix()
-    trans = np.array([real_poses[0]])
-    init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
+    estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, last_img_idx, step)
 
-    estimated_poses = vo.estimate_all_poses(init_pose, last_img_idx, step)
-
-    np.savez(f"{data_dir}vo_result_poses.npz", estimated=estimated_poses, truth=real_poses, img_truth=real_img_poses)
-    draw_vo_results(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
+    np.savez(
+        f"{data_dir}vo_result_poses.npz",
+        estimated_poses=estimated_poses, estimated_quats=estimated_quats,
+        real_poses=real_poses, real_quats=real_quats,
+        real_img_poses=real_img_poses, real_img_quats=real_img_quats
+    )
+    draw_vo_poses(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
     # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
     vo.save_results(last_img_idx, step, f"{data_dir}/npz/")

@@ -39,9 +39,18 @@ def load_images(src: str = "./datasets", last_img_idx: int = 30, step=1) -> list
 
 def load_result_poses(src: str):
     data = np.load(src)
-    estimatde_poses = data['estimated']
-    truth_poses = data['truth']
-    img_poses = data['img_truth']
-    diff = img_poses[0] - estimatde_poses[0]
-    estimatde_poses += diff
-    return estimatde_poses, truth_poses, img_poses
+    e_poses = data['estimated_poses']
+    e_quats = data['estimated_quats']
+    r_poses = data['real_poses']
+    r_quats = data['real_quats']
+    ri_poses = data['real_img_poses']
+    ri_quats = data['real_img_quats']
+    diff = ri_poses[0] - e_poses[0]
+    e_poses += diff
+    return e_poses, e_quats, r_poses, r_quats, ri_poses, ri_quats
+
+
+def quaternion_mean(quats: np.ndarray):
+    m = quats.T @ quats
+    w, v = np.linalg.eig(m)
+    return v[:, np.argmax(w)]

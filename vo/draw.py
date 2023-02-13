@@ -3,9 +3,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
+from scipy.spatial.transform import Rotation as R
 
 
-def drawDisparties(disp) -> Figure:
+def draw_disparties(disp) -> Figure:
     fig, ax = plt.subplots()
     ax_disp = ax.imshow(disp)
     ax.axes.xaxis.set_visible(False)
@@ -25,7 +26,7 @@ def drawDetectedKeypoints(img: np.ndarray, kpts: list, descs: list, flag: int = 
     return kpt_img
 
 
-def drawMatchedKpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint]):
+def draw_matched_kpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint]):
     prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in prev_pts])
     curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in curr_pts])
     match_img = img.copy()
@@ -38,10 +39,10 @@ def drawMatchedKpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: lis
     return match_img
 
 
-def draw_vo_results(
+def draw_vo_poses(
     estimated_poses: np.ndarray,
-    truth_poses: np.ndarray,
-    img_truth_poses: np.ndarray = None,
+    real_poses: np.ndarray,
+    real_img_poses: np.ndarray = None,
     save_src: str = None,
     draw_data: str = "all",
     view: tuple[float, float, float] = None,
@@ -50,23 +51,8 @@ def draw_vo_results(
     zlim: tuple[float, float] = None,
 ):
     fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-    if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
-        ax.plot(truth_poses[0][0], truth_poses[0][1], truth_poses[0][2], 'o', c="r", label="Start")
-        ax.plot(truth_poses[-1][0], truth_poses[-1][1], truth_poses[-1][2], 'x', c="r", label="End")
-        ax.plot(truth_poses[:, 0], truth_poses[:, 1], truth_poses[:, 2], c='#ff7f0e', label='Truth')
-    if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
-        ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
-    if draw_data == "all":
-        if img_truth_poses is not None:
-            ax.plot(img_truth_poses[:, 0], img_truth_poses[:, 1], img_truth_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
-            for e_pos, r_pos in zip(estimated_poses, img_truth_poses):
-                ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
-    if xlim is not None:
-        ax.set_xlim(xlim)
-    if ylim is not None:
-        ax.set_ylim(ylim)
-    if zlim is not None:
-        ax.set_zlim(zlim)
+    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, draw_data)
+    set_lims(ax, xlim, ylim, zlim)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_zlabel("z")
@@ -76,10 +62,71 @@ def draw_vo_results(
     plt.show()
 
 
-def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T):
-    xe = np.array([[1, 0, 0]]).T
-    ye = np.array([[0, 1, 0]]).T
-    ze = np.array([[0, 0, 1]]).T
+def draw_vo_quats(
+    estimated_poses: np.ndarray,
+    estimated_quats: np.ndarray,
+    real_poses: np.ndarray,
+    real_img_poses: np.ndarray = None,
+    real_img_quats: np.ndarray = None,
+    scale=0.1,
+    save_src: str = None,
+    draw_data: str = "all",
+    view: tuple[float, float, float] = None,
+    xlim: tuple[float, float] = None,
+    ylim: tuple[float, float] = None,
+    zlim: tuple[float, float] = None,
+):
+    fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, draw_data)
+    for e_pose, e_quat, ri_pose, ri_quat in list(zip(estimated_poses, estimated_quats, real_img_poses, real_img_quats))[::5]:
+        e_rot = R.from_quat(e_quat).as_matrix()
+        ri_rot = R.from_quat(ri_quat).as_matrix()
+        draw_coordinate(ax, e_rot, e_pose[:, np.newaxis], scale=scale)
+        draw_coordinate(ax, ri_rot, ri_pose[:, np.newaxis], scale=scale)
+    ax.set_xlabel("x")
+    ax.set_ylabel("y")
+    ax.set_zlabel("z")
+    # set_lims(ax, xlim, ylim, zlim)
+    ax.set_aspect('equal')
+    ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
+    fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
+    plt.show()
+
+
+def draw_trajectory(
+    ax: Axes,
+    estimated_poses: np.ndarray,
+    real_img_poses: np.ndarray,
+    real_poses: np.ndarray,
+    draw_data: str = "all"
+):
+    if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
+        ax.plot(real_poses[0][0], real_poses[0][1], real_poses[0][2], 'o', c="r", label="Start")
+        ax.plot(real_poses[-1][0], real_poses[-1][1], real_poses[-1][2], 'x', c="r", label="End")
+        ax.plot(real_poses[:, 0], real_poses[:, 1], real_poses[:, 2], c='#ff7f0e', label='Truth')
+    if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
+        ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
+    if draw_data == "all":
+        if real_img_poses is not None:
+            ax.plot(real_img_poses[:, 0], real_img_poses[:, 1], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
+            for e_pos, r_pos in zip(estimated_poses, real_img_poses):
+                ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
+
+
+def set_lims(ax: Axes, xlim: tuple[float, float] = None, ylim: tuple[float, float] = None, zlim: tuple[float, float] = None):
+    if xlim is not None:
+        ax.set_xlim(xlim)
+    if ylim is not None:
+        ax.set_ylim(ylim)
+    if zlim is not None:
+        ax.set_zlim(zlim)
+
+
+def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T, scale=1.0):
+    xe = scale * np.array([[1, 0, 0]]).T
+    ye = scale * np.array([[0, 1, 0]]).T
+    ze = scale * np.array([[0, 0, 1]]).T
     xe = (rot @ xe).T[0]
     ye = (rot @ ye).T[0]
     ze = (rot @ ze).T[0]

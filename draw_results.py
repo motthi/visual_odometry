@@ -28,7 +28,7 @@ if __name__ == "__main__":
 
         # Disparities
         if not f"{data['disp']}" == "None":
-            fig = drawDisparties(data['disp'])
+            fig = draw_disparties(data['disp'])
             fig.savefig(f"{data_dir}disps/{last_img_idx:04d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
             plt.close()
 
@@ -41,5 +41,5 @@ if __name__ == "__main__":
             continue
         prev_img = cv2.imread(f"{data_dir}left/{last_img_idx-step:04d}.png")
         if prev_img is not None:
-            match_img = drawMatchedKpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
+            match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
             cv2.imwrite(f"{data_dir}matched_kpts/{last_img_idx:04d}.png", match_img)
