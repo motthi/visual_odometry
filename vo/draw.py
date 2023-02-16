@@ -62,7 +62,7 @@ def draw_vo_poses(
     plt.show()
 
 
-def draw_vo_quats(
+def draw_vo_poses_and_quats(
     estimated_poses: np.ndarray,
     estimated_quats: np.ndarray,
     real_poses: np.ndarray,

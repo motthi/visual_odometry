@@ -2,6 +2,7 @@ from __future__ import annotations
 import cv2
 import os
 import quaternion
+import shutil
 import warnings
 import numpy as np
 from tqdm import tqdm
@@ -32,11 +33,11 @@ class VisualOdometry():
         T[3, 3] = 1.0
         return T
 
-    def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int, step: int = 1) -> list:
+    def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
         warnings.simplefilter("ignore")
         poses = [init_pose]
         cur_pose = init_pose
-        for idx in tqdm(range(1, last_img_idx - step, step)):
+        for idx in tqdm(range(1, last_img_idx)):
             transf = self.estimate_pose()
             if transf is not None:
                 cur_pose = cur_pose @ transf
@@ -514,7 +515,7 @@ class StereoVisualOdometry(VisualOdometry):
         r_img = self.right_imgs[idx]
         return l_img, r_img
 
-    def save_results(self, last_img_idx: int, step: int, base_src: str = "./npzt") -> None:
+    def save_results(self, last_img_idx: int, start=0, step: int = 1, base_dir: str = "./npz") -> None:
         """Save VO results (Keypoints, Descriptors, Disparity, DMatches, Matched keypoints in previous image, Matched keypoints in current image)
 
         Args:
@@ -522,11 +523,12 @@ class StereoVisualOdometry(VisualOdometry):
             step (int): VO execution step
             base_src (str, optional): Directory to be stored. Defaults to "./npz".
         """
-        os.makedirs(base_src, exist_ok=True)
-        for i, img_idx in enumerate(range(0, last_img_idx - step, step)):
+        shutil.rmtree(base_dir)
+        os.makedirs(base_dir, exist_ok=True)
+        for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
             kpts = self.left_kpts[i]
             np.savez(
-                f"{base_src}/{img_idx:04d}.npz",
+                f"{base_dir}/{img_idx:04d}.npz",
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 disp=self.disparities[i],

@@ -1,22 +1,26 @@
 from __future__ import annotations
 import cv2
 import os
+import shutil
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 
-def createSaveDirectories(src: str):
+def createSaveDirectories(dir: str):
     """Create directories to save results.
 
     Args:
         src (str): Dataset directory.
     """
-    os.makedirs(f"{src}disps/", exist_ok=True)
-    os.makedirs(f"{src}kpts/", exist_ok=True)
-    os.makedirs(f"{src}matched_kpts/", exist_ok=True)
+    shutil.rmtree(f"{dir}disps/")
+    shutil.rmtree(f"{dir}kpts/")
+    shutil.rmtree(f"{dir}matched_kpts/")
+    os.makedirs(f"{dir}disps/", exist_ok=True)
+    os.makedirs(f"{dir}kpts/", exist_ok=True)
+    os.makedirs(f"{dir}matched_kpts/", exist_ok=True)
 
 
-def load_images(src: str = "./datasets", last_img_idx: int = 30, step=1) -> list[np.ndarray, np.ndarray]:
+def load_images(src: str = "./datasets", last_img_idx: int = 30) -> list[np.ndarray, np.ndarray]:
     """Load images from a dataset.
 
     Args:
@@ -29,7 +33,7 @@ def load_images(src: str = "./datasets", last_img_idx: int = 30, step=1) -> list
     """
     l_imgs = []
     r_imgs = []
-    for i in range(0, last_img_idx, step):
+    for i in range(0, last_img_idx):
         l_img = cv2.imread(f"{src}left/{i:04d}.png")
         r_img = cv2.imread(f"{src}right/{i:04d}.png")
         l_imgs.append(l_img)
