@@ -49,7 +49,7 @@ def camera_params(src: str):
         [0.0, 0.0, 1.0]
     ])
     heading = 0.0
-    depression = np.pi / 4
+    depression = np.deg2rad(45)
     theta = heading - np.pi / 2
     phi = - depression - np.pi
     # phi = np.pi / 2 - depression
