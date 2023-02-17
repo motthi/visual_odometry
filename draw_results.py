@@ -15,10 +15,10 @@ if __name__ == "__main__":
         print(f"Dataset directory {data_dir} does not exist.")
         exit()
 
-    step = 3
+    step = 1
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
-    start = 10
-    last = last_img_idx
+    start = 0
+    last = 150
     createSaveDirectories(data_dir)
 
     print("Start exporting results...")

@@ -12,13 +12,26 @@ from vo.datasets.zed2 import *
 if __name__ == "__main__":
     data_dir = "./datasets/aki_20221021_1/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
-    step = 1
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
     if last_img_idx == 0:
         raise FileNotFoundError("No images found in the dataset directory.")
+    l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx)
+    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
+    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv")
 
-    l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx, step)
+    # 開始画像，終了画像，位置推定間隔を指定
+    step = 5
+    start = 0
+    last = last_img_idx
+    l_imgs = l_imgs[start:last:step]
+    r_imgs = r_imgs[start:last:step]
+    real_img_poses = real_img_poses[start:last:step]
+    real_img_quats = real_img_quats[start:last:step]
+    num_img = len(l_imgs)
+
+    # 位置推定で回転行列推定後の座標変換のための回転行列を定義
     base_rot = np.eye(3)
+    # base_rot = np.array([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
 
     # detector = cv2.FastFeatureDetector_create()
     detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
@@ -31,21 +44,15 @@ if __name__ == "__main__":
     # descriptor = cv2.SIFT_create()
     # descriptor = cv2.xfeatures2d.SURF_create()
 
+    # Image masking
     D = 50
     img_mask = np.full(l_imgs[0].shape[:2], 255, dtype=np.uint8)
     img_mask[:D, :] = 0
     img_mask[-100:, :] = 0
     img_mask[:, :D] = 0
     img_mask[:, -D:] = 0
-    # Load initial pose
-    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
-    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv", step)
 
-    # l_imgs = l_imgs[10:]
-    # r_imgs = r_imgs[10:]
-    # last_img_idx -= 10
-    # real_img_poses = real_img_poses[10:]
-    # real_img_quats = real_img_quats[10:]
+    # Set initial pose
     rot = R.from_quat(real_img_quats[0]).as_matrix()
     trans = np.array([real_img_poses[0]])
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
@@ -56,11 +63,13 @@ if __name__ == "__main__":
         l_imgs, r_imgs,
         detector, descriptor, img_mask=img_mask, num_disp=50,
         base_rot=base_rot,
-        method="svd",
+        # method="svd",
+        method="greedy",
         use_disp=False
+        # use_disp=True
     )
 
-    estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, last_img_idx, step)
+    estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
 
     np.savez(
         f"{data_dir}vo_result_poses.npz",
@@ -70,4 +79,4 @@ if __name__ == "__main__":
     )
     draw_vo_poses(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
     # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
-    vo.save_results(last_img_idx, step, f"{data_dir}/npz/")
+    vo.save_results(last, start, step, f"{data_dir}/npz/")
