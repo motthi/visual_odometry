@@ -4,7 +4,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 from vo.draw import *
-from vo.utils import createSaveDirectories
+from vo.utils import create_save_directories
 from tqdm import tqdm
 
 if __name__ == "__main__":
@@ -18,8 +18,8 @@ if __name__ == "__main__":
     step = 1
     last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
     start = 0
-    last = 150
-    createSaveDirectories(data_dir)
+    last = last_img_idx
+    create_save_directories(data_dir)
 
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")

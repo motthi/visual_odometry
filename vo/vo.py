@@ -237,12 +237,16 @@ class StereoVisualOdometry(VisualOdometry):
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+            self.Ts.append(None)
+            self.cnt += 1
             return None
 
         # Find the corresponding points in the right image
         prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+            self.Ts.append(None)
+            self.cnt += 1
             return None
 
         # Calculate essential matrix and the correct pose
@@ -275,6 +279,10 @@ class StereoVisualOdometry(VisualOdometry):
     def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
         kpts = self.detector.detect(img, self.img_mask)
         kpts, descs = self.descriptor.compute(img, kpts)
+        if len(kpts) == 0:
+            self.left_kpts.append(kpts)
+            self.left_descs.append(descs)
+            return [], []
         descs = np.array(descs, dtype=np.uint8)
         self.left_kpts.append(kpts)
         self.left_descs.append(descs)
@@ -298,7 +306,7 @@ class StereoVisualOdometry(VisualOdometry):
             self,
             prev_kpts: list[cv2.KeyPoint], curr_kpts: list[cv2.KeyPoint],
             prev_disps: np.ndarray, curr_disps: np.ndarray, matches: list[cv2.DMatch],
-            min_disp: float = 10.0, max_disp: float = 512.0
+            min_disp: float = 10.0, max_disp: float = 50.0
     ) -> list[list[cv2.KeyPoint], list[cv2.KeyPoint], list[cv2.DMatch], list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
         """Find correspond points in the right image and returns keypoints and descriptors in left and right image
 
@@ -523,7 +531,8 @@ class StereoVisualOdometry(VisualOdometry):
             step (int): VO execution step
             base_src (str, optional): Directory to be stored. Defaults to "./npz".
         """
-        shutil.rmtree(base_dir)
+        if os.path.exists(base_dir):
+            shutil.rmtree(base_dir)
         os.makedirs(base_dir, exist_ok=True)
         for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
             kpts = self.left_kpts[i]

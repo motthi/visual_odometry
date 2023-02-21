@@ -6,15 +6,15 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R
 
 
-def createSaveDirectories(dir: str):
+def create_save_directories(dir: str):
     """Create directories to save results.
 
     Args:
         src (str): Dataset directory.
     """
-    shutil.rmtree(f"{dir}disps/")
-    shutil.rmtree(f"{dir}kpts/")
-    shutil.rmtree(f"{dir}matched_kpts/")
+    shutil.rmtree(f"{dir}disps/") if os.path.exists(f"{dir}disps/") else None
+    shutil.rmtree(f"{dir}kpts/") if os.path.exists(f"{dir}kpts/") else None
+    shutil.rmtree(f"{dir}matched_kpts/") if os.path.exists(f"{dir}matched_kpts/") else None
     os.makedirs(f"{dir}disps/", exist_ok=True)
     os.makedirs(f"{dir}kpts/", exist_ok=True)
     os.makedirs(f"{dir}matched_kpts/", exist_ok=True)
