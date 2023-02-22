@@ -8,7 +8,7 @@ from vo.utils import create_save_directories
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221117_1/"
+    data_dir = "./datasets/aki_20230222_1/"
     # data_dir = "./datasets/feature_less_plane/"
 
     if not os.path.exists(f"{data_dir}"):
