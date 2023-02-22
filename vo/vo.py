@@ -460,7 +460,7 @@ class StereoVisualOdometry(VisualOdometry):
                 break
         r = out_pose[:3]    # Get the rotation vector
         R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
-        t = out_pose[3:]    # Get the translation vector
+        t = -out_pose[3:]    # Get the translation vector
         t = self.base_rot @ t
         T = self._form_transf(R, t)  # Make the transformation matrix
         return T

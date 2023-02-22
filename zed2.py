@@ -10,7 +10,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20221021_1/"
+    data_dir = "./datasets/aki_20230222_1/"
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
     if last_img_idx == 0:
@@ -20,9 +20,10 @@ if __name__ == "__main__":
     real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv")
 
     # 開始画像，終了画像，位置推定間隔を指定
-    step = 5
+    step = 1
     start = 0
     last = last_img_idx
+    # last = 50
     l_imgs = l_imgs[start:last:step]
     r_imgs = r_imgs[start:last:step]
     real_img_poses = real_img_poses[start:last:step]
@@ -31,7 +32,9 @@ if __name__ == "__main__":
 
     # 位置推定で回転行列推定後の座標変換のための回転行列を定義
     base_rot = np.eye(3)
+    # base_rot = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
     # base_rot = np.array([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
+    # base_rot = np.array([[0., 1., 0.], [-1., 0., 0.], [0., 0., 1.]])
 
     # detector = cv2.FastFeatureDetector_create()
     detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
@@ -46,10 +49,10 @@ if __name__ == "__main__":
 
     # Image masking
     D = 50
-    img_mask = np.full(l_imgs[0].shape[:2], 255, dtype=np.uint8)
-    img_mask[:D, :] = 0
+    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
+    img_mask[: D, :] = 0
     img_mask[-100:, :] = 0
-    img_mask[:, :D] = 0
+    img_mask[:, : D] = 0
     img_mask[:, -D:] = 0
 
     # Set initial pose

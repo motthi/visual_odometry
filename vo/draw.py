@@ -135,10 +135,11 @@ def draw_trans_diff(e_poses, r_poses, save_src=None):
 def draw_euler_diff(e_quats, r_quats, save_src):
     e_eulers = []
     r_eulers = []
+    conv_str = "ZXY"
     for eq, riq in zip(e_quats, r_quats):
         # @todo Check rover coordinate (Which is X+ direction?)
-        e_eulers.append(R.from_quat(eq).as_euler('ZXY', degrees=True))
-        r_eulers.append(R.from_quat(riq).as_euler('ZXY', degrees=True))
+        e_eulers.append(R.from_quat(eq).as_euler(conv_str, degrees=True))
+        r_eulers.append(R.from_quat(riq).as_euler(conv_str, degrees=True))
     e_eulers = np.array(e_eulers)
     r_eulers = np.array(r_eulers)
 
