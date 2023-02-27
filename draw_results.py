@@ -8,17 +8,17 @@ from vo.utils import create_save_directories
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20230222_1/"
+    data_dir = "./datasets/aki_20230227_4/"
     # data_dir = "./datasets/feature_less_plane/"
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
         exit()
 
-    step = 1
-    last_img_idx = len(glob.glob(f"{data_dir}left/*.png"))
-    start = 0
-    last = last_img_idx
+    result_data = np.load(f"{data_dir}vo_result_poses.npz", allow_pickle=True)
+    step = result_data["step"]
+    start = result_data["start_idx"]
+    last = result_data["last_idx"]
     create_save_directories(data_dir)
 
     print("Start exporting results...")
