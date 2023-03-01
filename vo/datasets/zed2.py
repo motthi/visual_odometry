@@ -33,24 +33,23 @@ def read_camera_pose(src: str):
 
 def camera_params(src: str):
     left_intrinsic = np.array([
-        [264.677490234375, 0.0, 335.0849914550781],
-        [0.0, 264.5, 186.73500061035156],
+        [263.7510070800781, 0.0, 336.1105041503906],
+        [0.0, 263.7510070800781, 182.92413330078125],
         [0.0, 0.0, 1.0]
     ])
     right_intrinsic = np.array([
-        [264.677490234375, 0.0, 335.0849914550781],
-        [0.0, 264.5, 186.73500061035156],
+        [263.7510070800781, 0.0, 336.1105041503906],
+        [0.0, 263.7510070800781, 182.92413330078125],
         [0.0, 0.0, 1.0]
     ])
     heading = 0.0
     depression = np.deg2rad(45)
     theta = heading - np.pi / 2
-    # phi = - depression - np.pi
     phi = depression
     rot = np.array([[-1., 0., 0.], [0., -1., 0.], [0., 0., 1.]])
     rot = np.array([[1.0, 0.0, 0.0], [0.0, np.cos(phi), -np.sin(phi)], [0.0, np.sin(phi), np.cos(phi)]]) @ rot
     trans_l = np.array([[0.0, 0.0, 0.0]]).T
-    trans_r = np.array([[31.753952026367188 / right_intrinsic[0][0], 0.0, 0.0]]).T
+    trans_r = np.array([[31.642799377441406 / right_intrinsic[0][0], 0.0, 0.0]]).T
     left_extrinsics = np.hstack((rot.T, -rot.T @ trans_l))
     right_extrinsics = np.hstack((rot.T, -rot.T @ trans_r))
     P_l = left_intrinsic @ left_extrinsics

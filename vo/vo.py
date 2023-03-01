@@ -434,10 +434,9 @@ class StereoVisualOdometry(VisualOdometry):
         # Initialize the min_error and early_termination counter
         min_error = float('inf')
         early_termination = 0
-        early_termination_thd = 20
+        early_termination_thd = 10
         for _ in range(max_iter):
-            # Choose 6 random feature points
-            sample_idx = np.random.choice(range(prev_pixes.shape[0]), 6)
+            sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
 
             sample_q1 = prev_pixes[sample_idx]
             sample_q2 = curr_pixes[sample_idx]
@@ -455,13 +454,13 @@ class StereoVisualOdometry(VisualOdometry):
             )
 
             # Calculate the error for the optimized transformation
-            error = self.reprojection_residuals(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            error = error.reshape((prev_3d_pts.shape[0] * 2, 2))
-            error = np.sum(np.linalg.norm(error, axis=1))
+            res = self.reprojection_residuals(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+            res = res.reshape((prev_3d_pts.shape[0] * 2, 2))
+            err = np.sum(np.linalg.norm(res, axis=1))
 
             # Check if the error is less the the current min error. Save the result if it is
-            if error < min_error:
-                min_error = error
+            if err < min_error:
+                min_error = err
                 out_pose = opt_res.x
                 early_termination = 0
             else:
