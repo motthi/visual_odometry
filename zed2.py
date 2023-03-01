@@ -20,7 +20,7 @@ if __name__ == "__main__":
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
 
     # 開始画像，終了画像，位置推定間隔を指定
-    step = 1
+    step = 3
     start = 0
     last = last_img_idx
     # last = 50
@@ -29,12 +29,6 @@ if __name__ == "__main__":
     real_img_poses = real_img_poses[start:last:step]
     real_img_quats = real_img_quats[start:last:step]
     num_img = len(l_imgs)
-
-    # 位置推定で回転行列推定後の座標変換のための回転行列を定義
-    base_rot = np.eye(3)
-    # base_rot = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])
-    # base_rot = np.array([[0.0, 0.0, -1.0], [0.0, 1.0, 0.0], [1.0, 0.0, 0.0]])
-    # base_rot = np.array([[0., 1., 0.], [-1., 0., 0.], [0., 0., 1.]])
 
     # detector = cv2.FastFeatureDetector_create()
     detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
@@ -60,14 +54,13 @@ if __name__ == "__main__":
     trans = np.array([real_img_poses[0]])
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
 
-    # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor)
+    # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor, img_mask=img_mask)
     vo = StereoVisualOdometry(
         lcam_params, rcam_params,
         l_imgs, r_imgs,
         detector, descriptor, img_mask=img_mask, num_disp=50,
-        base_rot=base_rot,
-        method="svd",
-        # method="greedy",
+        # method="svd",
+        method="greedy",
         # use_disp=False
         use_disp=True
     )

@@ -8,6 +8,7 @@ import numpy as np
 from tqdm import tqdm
 from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation as R
+from vo.matcher import FlannMatcher
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -15,15 +16,33 @@ MAX_MATCH_PTS = 50
 
 
 class VisualOdometry():
-    def __init__(self, camera_params, imgs, detector, descriptor) -> None:
-        self.extrinsic_l = camera_params['extrinsic']
+    def __init__(
+            self,
+            camera_params, imgs,
+            detector, descriptor, matcher,
+        img_mask
+    ) -> None:
+        self.E_l = camera_params['extrinsic']
         self.P_l = camera_params['projection']
         self.K_l = camera_params['intrinsic']
         self.detector = detector
         self.descriptor = descriptor
+        self.matcher = matcher
         self.left_imgs = imgs
+        self.img_mask = img_mask
         self.cnt = 0
+
+        l_img = imgs[0]
+        l_kpts = self.detector.detect(l_img, self.img_mask)
+        l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
+        l_descs = np.array(l_descs, dtype=np.uint8)
+
         self.Ts = [None]
+        self.left_kpts = [l_kpts]
+        self.left_descs = [l_descs]
+        self.matches = [None]
+        self.matched_prev_kpts = [None]
+        self.matched_curr_kpts = [None]
 
     @staticmethod
     def _form_transf(R, t):
@@ -45,6 +64,7 @@ class VisualOdometry():
             else:
                 tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
             poses.append(cur_pose)
+            self.cnt += 1
         quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in poses])
         poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
         return poses, quats
@@ -52,83 +72,102 @@ class VisualOdometry():
     def estimate_pose(self):
         raise NotImplementedError
 
+    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
+        """Detect feature points and track from previous image to current image
+
+        Args:
+            i (int): Image index
+            curr_img (np.ndarray): current left image
+
+        Returns:
+            list[list, list, list]: [Keypoints in previous image, Keypoints in current image, DMatches]
+        """
+        curr_kpts, curr_descs = self.detect_kpts(curr_img)
+        tp1, tp2, dmatches = self.track_kpts(i, curr_kpts, curr_descs)
+        return tp1, tp2, dmatches
+
+    def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
+        kpts = self.detector.detect(img, self.img_mask)
+        kpts, descs = self.descriptor.compute(img, kpts)
+        if len(kpts) == 0:
+            self.left_kpts.append(kpts)
+            self.left_descs.append(descs)
+            return [], []
+        descs = np.array(descs, dtype=np.uint8)
+        self.left_kpts.append(kpts)
+        self.left_descs.append(descs)
+        return kpts, descs
+
+    def track_kpts(self, i: int, curr_kpts: np.ndarray, curr_descs: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
+        prev_kpts = self.left_kpts[i]
+        prev_descs = self.left_descs[i]
+        matches = self.matcher.match(prev_descs, curr_descs)
+
+        masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
+        matches = sorted(matches, key=lambda x: x.distance)
+        # for i in range(min(50, len(matches))):
+        for i in range(len(matches)):
+            masked_prev_kpts.append(prev_kpts[matches[i].queryIdx])
+            masked_curr_kpts.append(curr_kpts[matches[i].trainIdx])
+            masked_dmatches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+        return np.array(masked_prev_kpts), np.array(masked_curr_kpts), np.array(masked_dmatches)
+
     def load_img(self, i: int) -> np.ndarray:
         return self.left_imgs[i]
 
 
 class MonocularVisualOdometry(VisualOdometry):
-    def __init__(self, left_camera_params, left_imgs, detector, descriptor) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor)
-        FLANN_INDEX_LSH = 6
-        index_params = dict(algorithm=FLANN_INDEX_LSH, table_number=6, key_size=12, multi_probe_level=1)
-        search_params = dict(checks=50)
-        self.flann = cv2.FlannBasedMatcher(indexParams=index_params, searchParams=search_params)
+    def __init__(
+            self,
+            left_camera_params, left_imgs,
+            detector, descriptor, matcher=FlannMatcher(),
+            img_mask=None
+    ) -> None:
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, img_mask)
 
     def estimate_pose(self):
-        q1, q2 = self.get_matches(self.cnt)
-        transf = self.estimate_transform_matrix(q1, q2)
-        self.cnt += 1
-        return np.linalg.inv(transf)
+        # Load images
+        left_curr_img = self.load_img(self.cnt + 1)
 
-    def get_matches(self, i):
-        """
-        This function detect and compute keypoints and descriptors from the i'th and i+1'th image using the class orb object
-        Parameters
-        ----------
-        i (int): The index of the current frame
-        Returns
-        -------
-        q1 (ndarray): The good keypoints matches position in i'th image
-        q2 (ndarray): The good keypoints matches position in i+1'th image
-        """
-        # Find the keypoints and descriptors with ORB
-        kpt1 = self.detector.detect(self.left_imgs[i], None)
-        kpt2 = self.detector.detect(self.left_imgs[i + 1], None)
-        kpt1, descs1 = self.descriptor.compute(self.left_imgs[i], kpt1)
-        kpt2, descs2 = self.descriptor.compute(self.left_imgs[i + 1], kpt2)
-        matches = self.flann.knnMatch(descs1, descs2, k=2)  # Find matches
+        # Detect and track keypoints
+        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
 
-        # Find the matches there do not have a to high distance
-        good = []
-        try:
-            for m, n in matches:
-                if m.distance < 0.8 * n.distance:
-                    good.append(m)
-        except ValueError:
-            pass
+        if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
+            self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+            return None
 
-        # draw_params = dict(
-        #     matchColor=-1,  # draw matches in green color
-        #     singlePointColor=None,
-        #     matchesMask=None,  # draw only inliers
-        #     flags=2
-        # )
+        transf = self.estimate_transform_matrix(prev_kpts, curr_kpts)
+        self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+        return transf
 
-        # img3 = cv2.drawMatches(self.left_imgs[i], kp1, self.left_imgs[i+1], kp2, good, None, **draw_params)
-        # cv2.imwrite("orb_matches.png", img3)
-        # cv2.imshow("image", img3)
-        # cv2.waitKey(200)
-
-        # Get the image points form the good matches
-        q1 = np.float32([kpt1[m.queryIdx].pt for m in good])
-        q2 = np.float32([kpt2[m.trainIdx].pt for m in good])
-        return q1, q2
-
-    def estimate_transform_matrix(self, q1, q2):
+    def estimate_transform_matrix(self, pkpts: list(cv2.KeyPoint), ckpts: list(cv2.KeyPoint)):
         """
         Calculates the transformation matrix
         Parameters
         ----------
-        q1 (ndarray): The good keypoints matches position in i-1'th image
-        q2 (ndarray): The good keypoints matches position in i'th image
+        pkpts (ndarray): The good keypoints matches position in i-1'th image
+        ckpts (ndarray): The good keypoints matches position in i'th image
         Returns
         -------
         transformation_matrix (ndarray): The transformation matrix
         """
-        E, _ = cv2.findEssentialMat(q1, q2, cameraMatrix=self.K_l, threshold=1)
-        R, t = self.decomp_essential_mat(E, q1, q2)
-        transformation_matrix = self._form_transf(R, np.squeeze(t))
-        return transformation_matrix
+        pkpts = np.float32([kpt.pt for kpt in pkpts])
+        ckpts = np.float32([kpt.pt for kpt in ckpts])
+        # pkpts = cv2.undistortPoints(np.expand_dims(pkpts, axis=1), cameraMatrix=self.K_l, distCoeffs=None)
+        # ckpts = cv2.undistortPoints(np.expand_dims(ckpts, axis=1), cameraMatrix=self.K_l, distCoeffs=None)
+
+        E, mask = cv2.findEssentialMat(pkpts, ckpts, cameraMatrix=self.K_l, threshold=1)
+        if E.shape != (3, 3):
+            return None
+        _, R, t, _ = cv2.recoverPose(E, pkpts, ckpts, cameraMatrix=self.K_l, mask=mask)
+
+        # scale = 0.18
+        # t = scale * t
+
+        # R, t = self.decomp_essential_mat(E, pkpts, ckpts)
+        transf = self._form_transf(R, np.squeeze(t))
+        # transf = np.linalg.inv(transf)
+        return transf
 
     def decomp_essential_mat(self, E, q1, q2):
         """
@@ -181,47 +220,60 @@ class MonocularVisualOdometry(VisualOdometry):
         t = t * relative_scale
         return [R1, t]
 
+    def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
+        self.matched_prev_kpts.append(prev_kpts)
+        self.matched_curr_kpts.append(curr_kpts)
+        self.matches.append(dmatches)
+
+    def save_results(self, last_img_idx: int, start=0, step: int = 1, base_dir: str = "./npz") -> None:
+        """Save VO results (Keypoints, Descriptors, Disparity, DMatches, Matched keypoints in previous image, Matched keypoints in current image)
+
+        Args:
+            last_img_idx (int): Last image index
+            step (int): VO execution step
+            base_src (str, optional): Directory to be stored. Defaults to "./npz".
+        """
+        if os.path.exists(base_dir):
+            shutil.rmtree(base_dir)
+        os.makedirs(base_dir, exist_ok=True)
+        for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
+            kpts = self.left_kpts[i]
+            np.savez(
+                f"{base_dir}/{img_idx:04d}.npz",
+                kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
+                descs=self.left_descs[i],
+                translation=self.Ts[i],
+                matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
+                matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
+                matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,
+            )
+
 
 class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        detector, descriptor, img_mask=None,
-        num_disp: int = 300, winSize: tuple = (15, 15),
-        base_rot: np.ndarray = np.eye(3),
-        method="svd", use_disp=False
+        detector, descriptor, matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True), img_mask=None,
+        num_disp: int = 300,
+        method: str = "svd", use_disp: bool = False
     ) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, img_mask)
         self.right_imgs = right_imgs
-        self.img_mask = img_mask
         self.method = method
         self.use_disp = use_disp
 
         # Load camera params
-        self.extrinsic_r = right_camera_params['extrinsic']
+        self.E_r = right_camera_params['extrinsic']
         self.P_r = right_camera_params['projection']
         self.K_r = right_camera_params['intrinsic']
 
-        self.bf = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
-        self.max_error = 6
-        self.base_rot = base_rot
-        self.lk_params = dict(winSize=winSize, flags=cv2.MOTION_AFFINE, maxLevel=11, criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 50, 0.03))
-
         # Initial processing
         l_img, r_img = self.load_img(self.cnt)
-        l_kpts = self.detector.detect(l_img, self.img_mask)
-        l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
-        l_descs = np.array(l_descs, dtype=np.uint8)
         if use_disp:
             self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
             self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
         else:
             self.disparities = [None]
-        self.left_kpts = [l_kpts]
-        self.left_descs = [l_descs]
-        self.matches = [None]
-        self.matched_prev_kpts = [None]
-        self.matched_curr_kpts = [None]
 
     def estimate_pose(self):
         # Load images
@@ -256,46 +308,6 @@ class StereoVisualOdometry(VisualOdometry):
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
         return transform_matrix
-
-    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
-        """Detect feature points and track from previous image to current image
-
-        Args:
-            i (int): Image index
-            curr_img (np.ndarray): current left image
-
-        Returns:
-            list[list, list, list]: [Keypoints in previous image, Keypoints in current image, DMatches]
-        """
-        curr_kpts, curr_descs = self.detect_kpts(curr_img)
-        tp1, tp2, dmatches = self.track_kpts(i, curr_kpts, curr_descs)
-        return tp1, tp2, dmatches
-
-    def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
-        kpts = self.detector.detect(img, self.img_mask)
-        kpts, descs = self.descriptor.compute(img, kpts)
-        if len(kpts) == 0:
-            self.left_kpts.append(kpts)
-            self.left_descs.append(descs)
-            return [], []
-        descs = np.array(descs, dtype=np.uint8)
-        self.left_kpts.append(kpts)
-        self.left_descs.append(descs)
-        return kpts, descs
-
-    def track_kpts(self, i: int, curr_kpts: np.ndarray, curr_descs: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
-        prev_kpts = self.left_kpts[i]
-        prev_descs = self.left_descs[i]
-        matches = self.bf.match(prev_descs, curr_descs)
-
-        masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
-        matches = sorted(matches, key=lambda x: x.distance)
-        # for i in range(min(50, len(matches))):
-        for i in range(len(matches)):
-            masked_prev_kpts.append(prev_kpts[matches[i].queryIdx])
-            masked_curr_kpts.append(curr_kpts[matches[i].trainIdx])
-            masked_dmatches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
-        return np.array(masked_prev_kpts), np.array(masked_curr_kpts), np.array(masked_dmatches)
 
     def find_right_kpts(
             self,
@@ -411,7 +423,7 @@ class StereoVisualOdometry(VisualOdometry):
         t = avg_curr_3d_pts - R @ avg_prev_3d_pts
         T = np.eye(4)
         T[: 3, : 3] = R[: 3, : 3].T
-        T[: 3, 3] = self.base_rot @ t[: 3, 0]
+        T[: 3, 3] = t[: 3, 0]
         return T
 
     def greedy_translation_estimation(
@@ -456,7 +468,6 @@ class StereoVisualOdometry(VisualOdometry):
         r = out_pose[:3]    # Get the rotation vector
         R, _ = cv2.Rodrigues(r)  # Make the rotation matrix
         t = -out_pose[3:]    # Get the translation vector
-        t = self.base_rot @ t
         T = self._form_transf(R, t)  # Make the transformation matrix
         return T
 
