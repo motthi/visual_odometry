@@ -39,6 +39,7 @@ class VisualOdometry():
         cur_pose = init_pose
         for idx in tqdm(range(1, last_img_idx)):
             transf = self.estimate_pose()
+            self.Ts.append(transf)
             if transf is not None:
                 cur_pose = cur_pose @ transf
             else:
@@ -237,16 +238,12 @@ class StereoVisualOdometry(VisualOdometry):
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-            self.Ts.append(None)
-            self.cnt += 1
             return None
 
         # Find the corresponding points in the right image
         prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-            self.Ts.append(None)
-            self.cnt += 1
             return None
 
         # Calculate essential matrix and the correct pose
@@ -258,8 +255,6 @@ class StereoVisualOdometry(VisualOdometry):
             transform_matrix = self.greedy_translation_estimation(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-        self.Ts.append(transform_matrix)
-        self.cnt += 1
         return transform_matrix
 
     def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
