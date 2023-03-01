@@ -8,8 +8,7 @@ from vo.utils import create_save_directories
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20230227_4/"
-    # data_dir = "./datasets/feature_less_plane/"
+    data_dir = "./datasets/aki_20230227_2/"
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
@@ -28,7 +27,7 @@ if __name__ == "__main__":
         data = np.load(f"{data_dir}npz/{idx:04d}.npz", allow_pickle=True)
 
         # Disparities
-        if not f"{data['disp']}" == "None":
+        if 'disp' in data and not f"{data['disp']}" == "None":
             fig = draw_disparties(data['disp'])
             fig.savefig(f"{data_dir}disps/{idx:04d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
             plt.close()

@@ -1,6 +1,5 @@
 import cv2
 import glob
-import quaternion
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from vo.vo import *
@@ -10,7 +9,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20230227_1/"
+    data_dir = "./datasets/aki_20230227_2/"
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
     if last_img_idx == 0:
         raise FileNotFoundError("No images found in the dataset directory.")
@@ -20,7 +19,7 @@ if __name__ == "__main__":
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
 
     # 開始画像，終了画像，位置推定間隔を指定
-    step = 3
+    step = 1
     start = 0
     last = last_img_idx
     # last = 50

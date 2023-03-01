@@ -45,19 +45,31 @@ def draw_vo_poses(
     real_img_poses: np.ndarray = None,
     save_src: str = None,
     draw_data: str = "all",
+    dim: int = 3,
     view: tuple[float, float, float] = None,
     xlim: tuple[float, float] = None,
     ylim: tuple[float, float] = None,
     zlim: tuple[float, float] = None,
 ):
-    fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, draw_data)
-    set_lims(ax, xlim, ylim, zlim)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    if dim == 2:
+        fig, ax = plt.subplots()
+    else:
+        fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
+    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, dim, draw_data)
+
+    if dim == 2:
+        ax.set_xlim(xlim) if xlim is not None else None
+        ax.set_ylim(zlim) if zlim is not None else None
+        ax.set_xlabel("x")
+        ax.set_ylabel("z")
+        ax.set_aspect('equal', adjustable='box')
+    else:
+        set_lims(ax, xlim, ylim, zlim)
+        ax.set_xlabel("x")
+        ax.set_ylabel("y")
+        ax.set_zlabel("z")
+        ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
-    ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
     plt.show()
 
@@ -99,19 +111,34 @@ def draw_trajectory(
     estimated_poses: np.ndarray,
     real_img_poses: np.ndarray,
     real_poses: np.ndarray,
+    dim: int = 3,
     draw_data: str = "all"
 ):
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
-        ax.plot(real_poses[0][0], real_poses[0][1], real_poses[0][2], 'o', c="r", label="Start")
-        ax.plot(real_poses[-1][0], real_poses[-1][1], real_poses[-1][2], 'x', c="r", label="End")
-        ax.plot(real_poses[:, 0], real_poses[:, 1], real_poses[:, 2], c='#ff7f0e', label='Truth')
+        if dim == 2:
+            ax.plot(real_poses[0][0], real_poses[0][2], 'o', c="r", label="Start")
+            ax.plot(real_poses[-1][0], real_poses[-1][2], 'x', c="r", label="End")
+            ax.plot(real_poses[:, 0], real_poses[:, 2], c='#ff7f0e', label='Truth')
+        else:
+            ax.plot(real_poses[0][0], real_poses[0][1], real_poses[0][2], 'o', c="r", label="Start")
+            ax.plot(real_poses[-1][0], real_poses[-1][1], real_poses[-1][2], 'x', c="r", label="End")
+            ax.plot(real_poses[:, 0], real_poses[:, 1], real_poses[:, 2], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
-        ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
+        if dim == 2:
+            ax.plot(estimated_poses[:, 0], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
+        else:
+            ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
     if draw_data == "all":
         if real_img_poses is not None:
-            ax.plot(real_img_poses[:, 0], real_img_poses[:, 1], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
+            if dim == 2:
+                ax.plot(real_img_poses[:, 0], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
+            else:
+                ax.plot(real_img_poses[:, 0], real_img_poses[:, 1], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
             for e_pos, r_pos in zip(estimated_poses, real_img_poses):
-                ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
+                if dim == 2:
+                    ax.plot([e_pos[0], r_pos[0]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
+                else:
+                    ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
 
 
 def draw_trans_diff(e_poses, r_poses, save_src=None):
