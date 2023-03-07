@@ -141,22 +141,40 @@ def draw_trajectory(
                     ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
 
 
+def draw_xyz_pose(ax: list[Axes], poses, label=None):
+    if label is not None:
+        ax[0].plot(poses[:, 0], label=label)
+        ax[1].plot(poses[:, 1], label=label)
+        ax[2].plot(poses[:, 2], label=label)
+    else:
+        ax[0].plot(poses[:, 0])
+        ax[1].plot(poses[:, 1])
+        ax[2].plot(poses[:, 2])
+
+
 def draw_trans_diff(e_poses, r_poses, save_src=None):
     fig, ax = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    ax[0].plot(e_poses[:, 0], label="Estimated")
-    ax[0].plot(r_poses[:, 0], label="Real")
+    draw_xyz_pose(ax, e_poses, label="Estimated")
+    draw_xyz_pose(ax, r_poses, label="Ground truth")
     ax[0].set_ylabel("X [m]")
-    ax[0].legend()
-    ax[1].plot(e_poses[:, 1], label="Estimated")
-    ax[1].plot(r_poses[:, 1], label="Real")
     ax[1].set_ylabel("Y [m]")
-    ax[1].legend()
-    ax[2].plot(e_poses[:, 2], label="Estimated")
-    ax[2].plot(r_poses[:, 2], label="Real")
     ax[2].set_ylabel("Z [m]")
+    ax[0].legend()
+    ax[1].legend()
     ax[2].legend()
     plt.show()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0.1) if save_src else None
+
+
+def draw_rpy_pose(ax: list[Axes], eulers, label=None):
+    if label is not None:
+        ax[0].plot(eulers[:, 0], label=label)
+        ax[1].plot(eulers[:, 1], label=label)
+        ax[2].plot(eulers[:, 2], label=label)
+    else:
+        ax[0].plot(eulers[:, 0])
+        ax[1].plot(eulers[:, 1])
+        ax[2].plot(eulers[:, 2])
 
 
 def draw_euler_diff(e_quats, r_quats, save_src):
@@ -171,17 +189,13 @@ def draw_euler_diff(e_quats, r_quats, save_src):
     r_eulers = np.array(r_eulers)
 
     fig, ax = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    ax[0].plot(e_eulers[:, 0], label="Estimated")
-    ax[0].plot(r_eulers[:, 0], label="Real")
+    draw_rpy_pose(ax, e_eulers, label="Estimated")
+    draw_rpy_pose(ax, r_eulers, label="Ground truth")
     ax[0].set_ylabel("Roll [deg]")
-    ax[0].legend()
-    ax[1].plot(e_eulers[:, 1], label="Estimated")
-    ax[1].plot(r_eulers[:, 1], label="Real")
     ax[1].set_ylabel("Pitch [deg]")
-    ax[1].legend()
-    ax[2].plot(e_eulers[:, 2], label="Estimated")
-    ax[2].plot(r_eulers[:, 2], label="Real")
     ax[2].set_ylabel("Yaw [deg]")
+    ax[0].legend()
+    ax[1].legend()
     ax[2].legend()
     plt.show()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0.1) if save_src else None
