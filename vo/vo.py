@@ -1,8 +1,8 @@
 from __future__ import annotations
 import cv2
 import os
-import quaternion
 import shutil
+import time
 import warnings
 import numpy as np
 from tqdm import tqdm
@@ -43,6 +43,7 @@ class VisualOdometry():
         self.matches = [None]
         self.matched_prev_kpts = [None]
         self.matched_curr_kpts = [None]
+        self.process_times = [None]
 
     @staticmethod
     def _form_transf(R, t):
@@ -55,16 +56,19 @@ class VisualOdometry():
     def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
         warnings.simplefilter("ignore")
         poses = [init_pose]
+        self.process_times = [None]
         cur_pose = init_pose
         for idx in tqdm(range(1, last_img_idx)):
+            s_time = time.time()
             transf = self.estimate_pose()
             self.Ts.append(transf)
             if transf is not None:
                 cur_pose = cur_pose @ transf
-            else:
-                tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
+            self.process_times.append(time.time() - s_time)
             poses.append(cur_pose)
             self.cnt += 1
+            if transf is None:
+                tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
         quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in poses])
         poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
         return poses, quats
@@ -240,6 +244,7 @@ class MonocularVisualOdometry(VisualOdometry):
             kpts = self.left_kpts[i]
             np.savez(
                 f"{base_dir}/{img_idx:04d}.npz",
+                process_time=self.process_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 translation=self.Ts[i],
@@ -547,6 +552,7 @@ class StereoVisualOdometry(VisualOdometry):
             kpts = self.left_kpts[i]
             np.savez(
                 f"{base_dir}/{img_idx:04d}.npz",
+                process_times=self.process_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 disp=self.disparities[i],
