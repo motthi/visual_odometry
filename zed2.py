@@ -16,7 +16,7 @@ if __name__ == "__main__":
     l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx)
     real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
     real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv")
-    lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.yaml")
+    lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.json")
 
     # 開始画像，終了画像，位置推定間隔を指定
     step = 1
