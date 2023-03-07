@@ -479,11 +479,6 @@ class StereoVisualOdometry(VisualOdometry):
         T = self._form_transf(R, t)  # Make the transformation matrix
         return T
 
-    def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
-        self.matched_prev_kpts.append(prev_kpts)
-        self.matched_curr_kpts.append(curr_kpts)
-        self.matches.append(dmatches)
-
     def reprojection_residuals(
         self,
         dof: np.ndarray,
@@ -502,7 +497,6 @@ class StereoVisualOdometry(VisualOdometry):
         Returns:
             np.ndarray: Reprojection residuals (Flattened)
         """
-
         r = dof[:3]  # Get the rotation vector
         R, _ = cv2.Rodrigues(r)  # Create the rotation matrix from the rotation vector
         t = dof[3:]  # Get the translation vector
@@ -523,6 +517,12 @@ class StereoVisualOdometry(VisualOdometry):
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]  # Un-homogenize
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
+
+
+    def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
+        self.matched_prev_kpts.append(prev_kpts)
+        self.matched_curr_kpts.append(curr_kpts)
+        self.matches.append(dmatches)
 
     def load_img(self, idx: int) -> list[np.ndarray, np.ndarray]:
         """Load image from the dataset
