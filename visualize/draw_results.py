@@ -1,5 +1,6 @@
+import sys
+sys.path.append("../")
 import cv2
-import glob
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -8,7 +9,7 @@ from vo.utils import create_save_directories
 from tqdm import tqdm
 
 if __name__ == "__main__":
-    data_dir = "./datasets/aki_20230227_2/"
+    data_dir = "../datasets/aki_20230227_2/"
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
@@ -33,7 +34,7 @@ if __name__ == "__main__":
             plt.close()
 
         # All detected keypoints
-        kpt_img = drawDetectedKeypoints(img, data["kpts"], data["descs"])
+        kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"])
         cv2.imwrite(f"{data_dir}kpts/{idx:04d}.png", kpt_img)
 
         # Matchd keypoints

@@ -9,6 +9,7 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 
 if __name__ == "__main__":
+    # Load datasets
     data_dir = "./datasets/aki_20230227_2/"
     last_img_idx = len(glob.glob(data_dir + "left/*.png"))
     if last_img_idx == 0:
@@ -18,7 +19,7 @@ if __name__ == "__main__":
     real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv")
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.json")
 
-    # 開始画像，終了画像，位置推定間隔を指定
+    # Specify the range of images to use
     step = 1
     start = 0
     last = last_img_idx
@@ -29,12 +30,14 @@ if __name__ == "__main__":
     real_img_quats = real_img_quats[start:last:step]
     num_img = len(l_imgs)
 
+    # Feature detector
     # detector = cv2.FastFeatureDetector_create()
     detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
 
+    # Feature descriptor
     descriptor = cv2.ORB_create()
     # descriptor = cv2.AKAZE_create()
     # descriptor = cv2.SIFT_create()
@@ -66,6 +69,7 @@ if __name__ == "__main__":
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
 
+    vo.save_results(last, start, step, f"{data_dir}/npz/")
     np.savez(
         f"{data_dir}vo_result_poses.npz",
         estimated_poses=estimated_poses, estimated_quats=estimated_quats,
@@ -74,5 +78,3 @@ if __name__ == "__main__":
         start_idx=start, last_idx=last, step=step
     )
     draw_vo_poses(estimated_poses, real_poses, real_img_poses, view=(-55, 145, -60), ylim=(0.0, 1.0))
-    # draw_vo_results(estimated_poses, real_poses, real_img_poses, f"{data_dir}vo_result.png", view=(-55, 145, -60), ylim=(0.0, 1.0))
-    vo.save_results(last, start, step, f"{data_dir}/npz/")
