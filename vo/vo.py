@@ -419,15 +419,16 @@ class StereoVisualOdometry(VisualOdometry):
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
 
-        # RANSAC
-        # FIXME RANSACでベストモデルを推定するよりも全特徴点を使った方が精度が良い
-        # max_trial = 1000
+        # RANSAC based translation estimation
+        # max_trial = 100
         # min_error = 1e10
         # early_termination = 0
-        # early_termination_thd = 100
+        # early_termination_thd = 20
+        # SAMPLE_NUM = 20
+        # INLIER_THD = 1.5
         # T = None
         # for _ in range(max_trial):
-        #     sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), int(prev_3d_pts.shape[1] / 2))
+        #     sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), SAMPLE_NUM)
         #     sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
         #     sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
         #     sample_avg_prev_3d_pts = np.mean(sample_prev_3d_pts, axis=1).reshape((4, -1))
@@ -442,16 +443,38 @@ class StereoVisualOdometry(VisualOdometry):
         #     sample_T[: 3, : 3] = sample_R[: 3, : 3].T
         #     sample_T[: 3, 3] = sample_t[: 3, 0]
 
+        #     # Error estimation
         #     res = self.reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
         #     res = res.reshape((prev_3d_pts.shape[1] * 2, 2))
-        #     err = np.sum(np.linalg.norm(res, axis=1))
-        #     if err < min_error:
-        #         min_error = err
-        #         T = sample_T
+        #     error_pred = res[:prev_3d_pts.shape[1], :]  # Reprojection error against i to i-1
+        #     error_curr = res[prev_3d_pts.shape[1]:, :]  # Reprojection error against i-1 to i
+
+        #     # Find inliner and re-estimate
+        #     inlier_idx = np.where(np.logical_and(error_pred < INLIER_THD, error_curr < INLIER_THD))[0]
+        #     inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
+        #     inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
+        #     inliner_avg_prev_3d_pts = np.mean(inliner_prev_3d_pts, axis=1).reshape((4, -1))
+        #     inliner_avg_curr_3d_pts = np.mean(inliner_curr_3d_pts, axis=1).reshape((4, -1))
+        #     U, _, V = np.linalg.svd((inliner_prev_3d_pts - inliner_avg_prev_3d_pts) @ (inliner_curr_3d_pts - inliner_avg_curr_3d_pts).T)
+        #     inliner_R = V.T @ U.T
+        #     if np.linalg.det(inliner_R) < 0:
+        #         continue
+        #     inliner_t = inliner_avg_curr_3d_pts - inliner_R @ inliner_avg_prev_3d_pts
+        #     inliner_T = np.eye(4)
+        #     inliner_T[: 3, : 3] = inliner_R[: 3, : 3].T
+        #     inliner_T[: 3, 3] = inliner_t[: 3, 0]
+
+        #     res = self.reprojection_residuals(sample_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
+        #     res = res.reshape((len(inlier_idx) * 2, 2))
+        #     error = np.mean(np.linalg.norm(res, axis=1))
+
+        #     if error < min_error:
+        #         min_error = error
         #         early_termination = 0
+        #         T = inliner_T
         #     else:
         #         early_termination += 1
-        #     if early_termination == early_termination_thd:
+        #     if early_termination > early_termination_thd:
         #         break
 
         avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
@@ -566,9 +589,9 @@ class StereoVisualOdometry(VisualOdometry):
         b_projection = self.P_l @ np.linalg.inv(transf)
 
         q1_pred = curr_3d_pts.T @ f_projection.T        # Project 3D points from i'th image to i-1'th image
-        q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]  # Un-homogenize
-        q2_pred = prev_3d_pts.T @ b_projection.T    # Project 3D points from i-1'th image to i'th image
-        q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]  # Un-homogenize
+        q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]      # Un-homogenize
+        q2_pred = prev_3d_pts.T @ b_projection.T        # Project 3D points from i-1'th image to i'th image
+        q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]      # Un-homogenize
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
 
