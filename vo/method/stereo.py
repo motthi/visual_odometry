@@ -143,6 +143,13 @@ class SvdBasedEstimator(StereoVoEstimator):
 
 
 class RansacSvdBasedEstimator(StereoVoEstimator):
+    def __init__(self, P_l, max_trial: int = 100, early_termination_thd: int = 20, sample_num: int = 20, inliner_thd: float = 1.5):
+        super().__init__(P_l)
+        self.max_trial = max_trial
+        self.early_termination_thd = early_termination_thd
+        self.sample_num = sample_num
+        self.inlier_thd = inliner_thd
+
     def estimate(
         self,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
@@ -151,15 +158,11 @@ class RansacSvdBasedEstimator(StereoVoEstimator):
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
 
-        max_trial = 100
         min_error = 1e10
         early_termination = 0
-        early_termination_thd = 20
-        SAMPLE_NUM = 20
-        INLIER_THD = 1.5
         T = None
-        for _ in range(max_trial):
-            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), SAMPLE_NUM)
+        for _ in range(self.max_trial):
+            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), self.sample_num)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
             sample_avg_prev_3d_pts = np.mean(sample_prev_3d_pts, axis=1).reshape((4, -1))
@@ -181,7 +184,7 @@ class RansacSvdBasedEstimator(StereoVoEstimator):
             error_curr = res[prev_3d_pts.shape[1]:, :]  # Reprojection error against i-1 to i
 
             # Find inliner and re-estimate
-            inlier_idx = np.where(np.logical_and(error_pred < INLIER_THD, error_curr < INLIER_THD))[0]
+            inlier_idx = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
             inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
             inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
             inliner_avg_prev_3d_pts = np.mean(inliner_prev_3d_pts, axis=1).reshape((4, -1))
@@ -205,6 +208,6 @@ class RansacSvdBasedEstimator(StereoVoEstimator):
                 T = inliner_T
             else:
                 early_termination += 1
-            if early_termination > early_termination_thd:
+            if early_termination > self.early_termination_thd:
                 break
         return T

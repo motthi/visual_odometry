@@ -62,9 +62,9 @@ if __name__ == "__main__":
         lcam_params, rcam_params,
         l_imgs, r_imgs,
         detector, descriptor,
-        estimator=LmBasedEstimator(lcam_params['projection']),
+        # estimator=LmBasedEstimator(lcam_params['projection']),
         # estimator=SvdBasedEstimator(lcam_params['projection']),
-        # estimator=RansacSvdBasedEstimator(lcam_params['projection']),
+        estimator=RansacSvdBasedEstimator(lcam_params['projection'], sample_num=20, inliner_thd=1.5),
         matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
         img_mask=img_mask, num_disp=50,
         # use_disp=False
