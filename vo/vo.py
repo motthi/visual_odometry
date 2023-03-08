@@ -6,9 +6,9 @@ import time
 import warnings
 import numpy as np
 from tqdm import tqdm
-from scipy.optimize import least_squares
 from scipy.spatial.transform import Rotation as R
-from vo.matcher import FlannMatcher
+from vo.method.monocular import *
+from vo.method.stereo import *
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -17,9 +17,9 @@ MAX_MATCH_PTS = 50
 
 class VisualOdometry():
     def __init__(
-            self,
-            camera_params, imgs,
-            detector, descriptor, matcher,
+        self,
+        camera_params, imgs,
+        detector, descriptor, matcher, estimator: VoEstimator,
         img_mask
     ) -> None:
         self.E_l = camera_params['extrinsic']
@@ -28,6 +28,7 @@ class VisualOdometry():
         self.detector = detector
         self.descriptor = descriptor
         self.matcher = matcher
+        self.estimator = estimator
         self.left_imgs = imgs
         self.img_mask = img_mask
         self.cnt = 0
@@ -44,14 +45,6 @@ class VisualOdometry():
         self.matched_prev_kpts = [None]
         self.matched_curr_kpts = [None]
         self.process_times = [None]
-
-    @staticmethod
-    def _form_transf(R, t):
-        T = np.eye(4, dtype=np.float64)
-        T[:3, :3] = R
-        T[:3, 3] = -t
-        T[3, 3] = 1.0
-        return T
 
     def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
         warnings.simplefilter("ignore")
@@ -124,10 +117,10 @@ class MonocularVisualOdometry(VisualOdometry):
     def __init__(
             self,
             left_camera_params, left_imgs,
-            detector, descriptor, matcher=FlannMatcher(),
+            detector, descriptor, matcher, estimator,
             img_mask=None
     ) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, img_mask)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, estimator, img_mask)
 
     def estimate_pose(self):
         # Load images
@@ -140,37 +133,8 @@ class MonocularVisualOdometry(VisualOdometry):
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
 
-        transf = self.estimate_transform_matrix(prev_kpts, curr_kpts)
+        transf = self.estimate(prev_kpts, curr_kpts)
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-        return transf
-
-    def estimate_transform_matrix(self, pkpts: list(cv2.KeyPoint), ckpts: list(cv2.KeyPoint)):
-        """
-        Calculates the transformation matrix
-        Parameters
-        ----------
-        pkpts (ndarray): The good keypoints matches position in i-1'th image
-        ckpts (ndarray): The good keypoints matches position in i'th image
-        Returns
-        -------
-        transformation_matrix (ndarray): The transformation matrix
-        """
-        pkpts = np.float32([kpt.pt for kpt in pkpts])
-        ckpts = np.float32([kpt.pt for kpt in ckpts])
-        # pkpts = cv2.undistortPoints(np.expand_dims(pkpts, axis=1), cameraMatrix=self.K_l, distCoeffs=None)
-        # ckpts = cv2.undistortPoints(np.expand_dims(ckpts, axis=1), cameraMatrix=self.K_l, distCoeffs=None)
-
-        E, mask = cv2.findEssentialMat(pkpts, ckpts, cameraMatrix=self.K_l, threshold=1)
-        if E.shape != (3, 3):
-            return None
-        _, R, t, _ = cv2.recoverPose(E, pkpts, ckpts, cameraMatrix=self.K_l, mask=mask)
-
-        # scale = 0.18
-        # t = scale * t
-
-        # R, t = self.decomp_essential_mat(E, pkpts, ckpts)
-        transf = self._form_transf(R, np.squeeze(t))
-        # transf = np.linalg.inv(transf)
         return transf
 
     def decomp_essential_mat(self, E, q1, q2):
@@ -258,11 +222,11 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        detector, descriptor, matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True), img_mask=None,
+        detector, descriptor, matcher, estimator: StereoVoEstimator, img_mask=None,
         num_disp: int = 300,
         method: str = "svd", use_disp: bool = False
     ) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, img_mask)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, estimator, img_mask)
         self.right_imgs = right_imgs
         self.method = method
         self.use_disp = use_disp
@@ -305,10 +269,7 @@ class StereoVisualOdometry(VisualOdometry):
         # Calculate essential matrix and the correct pose
         prev_3d_pts, curr_3d_pts = self.calc_3d(l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts)
 
-        if self.method == "svd":
-            transform_matrix = self.svd_based_translation_estimation(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
-        elif self.method == "greedy":
-            transform_matrix = self.greedy_translation_estimation(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
+        transform_matrix = self.estimator.estimate(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
         return transform_matrix
@@ -410,190 +371,6 @@ class StereoVisualOdometry(VisualOdometry):
         Q2 = cv2.triangulatePoints(self.P_l, self.P_r, l_fpts_curr.T, r_fpts_curr.T)  # Triangulate points from i'th image
         Q2 = np.transpose(Q2[: 3] / Q2[3])   # Un-homogenize
         return Q1, Q2
-
-    def svd_based_translation_estimation(
-        self,
-        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
-    ) -> np.ndarray:
-        prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
-        curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
-
-        # RANSAC based translation estimation
-        # max_trial = 100
-        # min_error = 1e10
-        # early_termination = 0
-        # early_termination_thd = 20
-        # SAMPLE_NUM = 20
-        # INLIER_THD = 1.5
-        # T = None
-        # for _ in range(max_trial):
-        #     sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), SAMPLE_NUM)
-        #     sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
-        #     sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
-        #     sample_avg_prev_3d_pts = np.mean(sample_prev_3d_pts, axis=1).reshape((4, -1))
-        #     sample_avg_curr_3d_pts = np.mean(sample_curr_3d_pts, axis=1).reshape((4, -1))
-
-        #     U, _, V = np.linalg.svd((sample_prev_3d_pts - sample_avg_prev_3d_pts) @ (sample_curr_3d_pts - sample_avg_curr_3d_pts).T)
-        #     sample_R = V.T @ U.T
-        #     if np.linalg.det(sample_R) < 0:
-        #         continue
-        #     sample_t = sample_avg_curr_3d_pts - sample_R @ sample_avg_prev_3d_pts
-        #     sample_T = np.eye(4)
-        #     sample_T[: 3, : 3] = sample_R[: 3, : 3].T
-        #     sample_T[: 3, 3] = sample_t[: 3, 0]
-
-        #     # Error estimation
-        #     res = self.reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-        #     res = res.reshape((prev_3d_pts.shape[1] * 2, 2))
-        #     error_pred = res[:prev_3d_pts.shape[1], :]  # Reprojection error against i to i-1
-        #     error_curr = res[prev_3d_pts.shape[1]:, :]  # Reprojection error against i-1 to i
-
-        #     # Find inliner and re-estimate
-        #     inlier_idx = np.where(np.logical_and(error_pred < INLIER_THD, error_curr < INLIER_THD))[0]
-        #     inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
-        #     inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
-        #     inliner_avg_prev_3d_pts = np.mean(inliner_prev_3d_pts, axis=1).reshape((4, -1))
-        #     inliner_avg_curr_3d_pts = np.mean(inliner_curr_3d_pts, axis=1).reshape((4, -1))
-        #     U, _, V = np.linalg.svd((inliner_prev_3d_pts - inliner_avg_prev_3d_pts) @ (inliner_curr_3d_pts - inliner_avg_curr_3d_pts).T)
-        #     inliner_R = V.T @ U.T
-        #     if np.linalg.det(inliner_R) < 0:
-        #         continue
-        #     inliner_t = inliner_avg_curr_3d_pts - inliner_R @ inliner_avg_prev_3d_pts
-        #     inliner_T = np.eye(4)
-        #     inliner_T[: 3, : 3] = inliner_R[: 3, : 3].T
-        #     inliner_T[: 3, 3] = inliner_t[: 3, 0]
-
-        #     res = self.reprojection_residuals(sample_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
-        #     res = res.reshape((len(inlier_idx) * 2, 2))
-        #     error = np.mean(np.linalg.norm(res, axis=1))
-
-        #     if error < min_error:
-        #         min_error = error
-        #         early_termination = 0
-        #         T = inliner_T
-        #     else:
-        #         early_termination += 1
-        #     if early_termination > early_termination_thd:
-        #         break
-
-        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
-        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
-
-        U, _, V = np.linalg.svd((prev_3d_pts - avg_prev_3d_pts) @ (curr_3d_pts - avg_curr_3d_pts).T)
-        R = V.T @ U.T
-        if np.linalg.det(R) < 0:
-            return None
-        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
-        T = np.eye(4)
-        T[: 3, : 3] = R[: 3, : 3].T
-        T[: 3, 3] = t[: 3, 0]
-        return T
-
-    def greedy_translation_estimation(
-        self,
-        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
-        max_iter: int = 100
-    ) -> np.ndarray:
-        # Initialize the min_error and early_termination counter
-        min_error = float('inf')
-        early_termination = 0
-        early_termination_thd = 10
-        for _ in range(max_iter):
-            sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
-
-            sample_q1 = prev_pixes[sample_idx]
-            sample_q2 = curr_pixes[sample_idx]
-            sample_Q1 = prev_3d_pts[sample_idx]
-            sample_Q2 = curr_3d_pts[sample_idx]
-
-            # Perform least squares optimization
-            in_guess = np.zeros(6)  # Make the start guess
-            opt_res = least_squares(
-                self.optimize_function,                        # Function to minimize
-                in_guess,                                           # Initial guess
-                method='lm',                                        # Levenberg-Marquardt algorithm
-                max_nfev=200,                                       # Max number of function evaluations
-                args=(sample_q1, sample_q2, sample_Q1, sample_Q2)   # Additional arguments to pass to the function
-            )
-
-            # Calculate the error for the optimized transformation
-            res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            res = res.reshape((prev_3d_pts.shape[0] * 2, 2))
-            err = np.sum(np.linalg.norm(res, axis=1))
-
-            # Check if the error is less the the current min error. Save the result if it is
-            if err < min_error:
-                min_error = err
-                out_pose = opt_res.x
-                early_termination = 0
-            else:
-                early_termination += 1
-            if early_termination == early_termination_thd:
-                # If we have not fund any better result in early_termination_threshold iterations
-                break
-        r = out_pose[:3]             # Get the rotation vector
-        R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
-        t = -out_pose[3:]            # Get the translation vector
-        T = self._form_transf(R, t)  # Make the transformation matrix
-        return T
-
-    def optimize_function(
-            self,
-            dof: np.ndarray,
-            p_pixes: np.ndarray, c_pixes: np.ndarray,
-            p3d_pts: np.ndarray, c3d_pts: np.ndarray
-    ):
-        """Optimize function: Calculates the reprojection residuals from the rotation and translation vector
-
-        Args:
-            dof (np.ndarray): Rotation vector and translation vector
-            prev_pixes (np.ndarray): Pixel points in image 1
-            curr_pixes (np.ndarray): Pixel points in image 2
-            prev_3d_pts (np.ndarray): 3D points in image 1
-            curr_3d_pts (np.ndarray): 3D points in image 2
-
-        Returns:
-            np.ndarray: Reprojection residuals (Flattened)
-        """
-        r = dof[:3]  # Get the rotation vector
-        R, _ = cv2.Rodrigues(r)  # Create the rotation matrix from the rotation vector
-        t = dof[3:]  # Get the translation vector
-        transf = self._form_transf(R, t)    # Create the transformation matrix from the rotation matrix and translation vector
-        ones = np.ones((p_pixes.shape[0], 1))
-        p3d_pts = np.hstack([p3d_pts, ones]).T
-        c3d_pts = np.hstack([c3d_pts, ones]).T
-        return self.reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
-
-    def reprojection_residuals(
-        self,
-        transf: np.ndarray,
-        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
-    ) -> np.ndarray:
-        """Calculate residuals for reprojection
-
-        Args:
-            transf (np.ndarray): Transformation matrix in the homogeneous form
-            prev_pixes (np.ndarray): Pixel points in image 1
-            curr_pixes (np.ndarray): Pixel points in image 2
-            prev_3d_pts (np.ndarray): 3D points in image 1
-            curr_3d_pts (np.ndarray): 3D points in image 2
-
-        Returns:
-            np.ndarray: Reprojection residuals (Flattened)
-        """
-        # Create the projection matrix for the i-1'th image and i'th image
-        f_projection = self.P_l @ transf
-        b_projection = self.P_l @ np.linalg.inv(transf)
-
-        q1_pred = curr_3d_pts.T @ f_projection.T        # Project 3D points from i'th image to i-1'th image
-        q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]      # Un-homogenize
-        q2_pred = prev_3d_pts.T @ b_projection.T        # Project 3D points from i-1'th image to i'th image
-        q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]      # Un-homogenize
-        residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
-        return residuals
 
     def append_kpts_match_info(self, prev_kpts, curr_kpts, dmatches):
         self.matched_prev_kpts.append(prev_kpts)

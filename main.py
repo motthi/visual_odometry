@@ -7,6 +7,7 @@ from vo.draw import draw_vo_poses
 from vo.detector import *
 from vo.utils import *
 from vo.datasets.zed2 import *
+from vo.method.stereo import *
 
 if __name__ == "__main__":
     # Load datasets
@@ -60,9 +61,12 @@ if __name__ == "__main__":
     vo = StereoVisualOdometry(
         lcam_params, rcam_params,
         l_imgs, r_imgs,
-        detector, descriptor, img_mask=img_mask, num_disp=50,
-        # method="svd",
-        method="greedy",
+        detector, descriptor,
+        estimator=LmBasedEstimator(lcam_params['projection']),
+        # estimator=SvdBasedEstimator(lcam_params['projection']),
+        # estimator=RansacSvdBasedEstimator(lcam_params['projection']),
+        matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
+        img_mask=img_mask, num_disp=50,
         # use_disp=False
         use_disp=True
     )
