@@ -128,6 +128,22 @@ class SvdBasedEstimator(StereoVoEstimator):
     ) -> np.ndarray:
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
+        T = self.svd_based_estimate(prev_3d_pts, curr_3d_pts)
+        return T
+
+    def svd_based_estimate(
+        self,
+        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+    ) -> np.ndarray:
+        """Estime transformation matrix using SVD
+
+        Args:
+            prev_3d_pts (np.ndarray): The homogeneous 3D points in the previous frame
+            curr_3d_pts (np.ndarray): The homogeneous 3D points in the current frame
+
+        Returns:
+            np.ndarray: Transformation matrix in homogeneous coordinates
+        """
         avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
         avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
 
@@ -142,7 +158,7 @@ class SvdBasedEstimator(StereoVoEstimator):
         return T
 
 
-class RansacSvdBasedEstimator(StereoVoEstimator):
+class RansacSvdBasedEstimator(SvdBasedEstimator):
     def __init__(self, P_l, max_trial: int = 100, early_termination_thd: int = 20, sample_num: int = 20, inliner_thd: float = 1.5):
         super().__init__(P_l)
         self.max_trial = max_trial
@@ -165,17 +181,9 @@ class RansacSvdBasedEstimator(StereoVoEstimator):
             sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), self.sample_num)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
-            sample_avg_prev_3d_pts = np.mean(sample_prev_3d_pts, axis=1).reshape((4, -1))
-            sample_avg_curr_3d_pts = np.mean(sample_curr_3d_pts, axis=1).reshape((4, -1))
-
-            U, _, V = np.linalg.svd((sample_prev_3d_pts - sample_avg_prev_3d_pts) @ (sample_curr_3d_pts - sample_avg_curr_3d_pts).T)
-            sample_R = V.T @ U.T
-            if np.linalg.det(sample_R) < 0:
+            sample_T = self.svd_based_estimate(sample_prev_3d_pts, sample_curr_3d_pts)
+            if sample_T is None or np.linalg.det(sample_T[:3, :3]) < 0:
                 continue
-            sample_t = sample_avg_curr_3d_pts - sample_R @ sample_avg_prev_3d_pts
-            sample_T = np.eye(4)
-            sample_T[: 3, : 3] = sample_R[: 3, : 3].T
-            sample_T[: 3, 3] = sample_t[: 3, 0]
 
             # Error estimation
             res = self.reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
@@ -185,18 +193,13 @@ class RansacSvdBasedEstimator(StereoVoEstimator):
 
             # Find inliner and re-estimate
             inlier_idx = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
+            if len(inlier_idx) < 10:
+                continue
             inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
             inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
-            inliner_avg_prev_3d_pts = np.mean(inliner_prev_3d_pts, axis=1).reshape((4, -1))
-            inliner_avg_curr_3d_pts = np.mean(inliner_curr_3d_pts, axis=1).reshape((4, -1))
-            U, _, V = np.linalg.svd((inliner_prev_3d_pts - inliner_avg_prev_3d_pts) @ (inliner_curr_3d_pts - inliner_avg_curr_3d_pts).T)
-            inliner_R = V.T @ U.T
-            if np.linalg.det(inliner_R) < 0:
+            inliner_T = self.svd_based_estimate(inliner_prev_3d_pts, inliner_curr_3d_pts)
+            if inliner_T is None or np.linalg.det(inliner_T[:3, :3]) < 0:
                 continue
-            inliner_t = inliner_avg_curr_3d_pts - inliner_R @ inliner_avg_prev_3d_pts
-            inliner_T = np.eye(4)
-            inliner_T[: 3, : 3] = inliner_R[: 3, : 3].T
-            inliner_T[: 3, 3] = inliner_t[: 3, 0]
 
             res = self.reprojection_residuals(sample_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
             res = res.reshape((len(inlier_idx) * 2, 2))
