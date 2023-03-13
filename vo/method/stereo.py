@@ -148,22 +148,25 @@ class SvdBasedEstimator(StereoVoEstimator):
         avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
 
         R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
-        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        t = avg_curr_3d_pts[:3, :] - R @ avg_prev_3d_pts[:3, :]
         T = np.eye(4)
-        T[: 3, : 3] = R[: 3, : 3].T
+        T[: 3, : 3] = R.T
         T[: 3, 3] = t[: 3, 0]
         return T
 
-    def rotation_estimate(self, pts1: np.ndarray, pts2: np.ndarray):
-        """Estimate rotation matrix by SVD
+    def rotation_estimate(self, pts1: np.ndarray, pts2: np.ndarray) -> np.ndarray:
+        """Estimate rotation matrix using SVD
 
         Args:
             pts1 (np.ndarray): Points1 such as previous points
             pts2 (np.ndarray): Points2 such as current points
+
+        Returns:
+            np.ndarray: Rotation matrix in shape 3x3
         """
-        U, _, V = np.linalg.svd(pts1 @ pts2.T)
-        S = np.eye(4)
-        S[3, 3] = np.linalg.det(U @ V)  # For cope with reflection
+        U, _, V = np.linalg.svd(pts1[:3, :] @ pts2[:3, :].T)
+        S = np.eye(3)
+        S[2, 2] = np.linalg.det(V.T @ U.T)  # For cope with reflection
         R = V.T @ S @ U.T
         return R
 
