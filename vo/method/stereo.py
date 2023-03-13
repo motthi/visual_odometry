@@ -148,9 +148,11 @@ class SvdBasedEstimator(StereoVoEstimator):
         avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
 
         U, _, V = np.linalg.svd((prev_3d_pts - avg_prev_3d_pts) @ (curr_3d_pts - avg_curr_3d_pts).T)
-        R = V.T @ U.T
-        if np.linalg.det(R) < 0:
-            return None
+        S = np.eye(4)
+        S[3, 3] = np.linalg.det(U @ V)  # For cope with reflection
+        R = V.T @ S @ U.T
+        # if np.linalg.det(R) < 0:
+        #     return None
         t = avg_curr_3d_pts - R @ avg_prev_3d_pts
         T = np.eye(4)
         T[: 3, : 3] = R[: 3, : 3].T
@@ -159,12 +161,11 @@ class SvdBasedEstimator(StereoVoEstimator):
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
-    def __init__(self, P_l, max_trial: int = 100, early_termination_thd: int = 20, sample_num: int = 20, inliner_thd: float = 1.5):
+    def __init__(self, P_l, max_trial: int = 100, early_termination_thd: int = 20, inlier_thd: float = 1.5):
         super().__init__(P_l)
         self.max_trial = max_trial
         self.early_termination_thd = early_termination_thd
-        self.sample_num = sample_num
-        self.inlier_thd = inliner_thd
+        self.inlier_thd = inlier_thd
 
     def estimate(
         self,
@@ -177,8 +178,9 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         min_error = 1e10
         early_termination = 0
         T = None
+        sample_num = 3
         for _ in range(self.max_trial):
-            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), self.sample_num)
+            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
             sample_T = self.svd_based_estimate(sample_prev_3d_pts, sample_curr_3d_pts)
