@@ -9,7 +9,7 @@ class StereoVoEstimator(VoEstimator):
     def __init__(self, P_l):
         self.P_l = P_l
 
-    def reprojection_residuals(
+    def image_reprojection_residuals(
         self,
         transf: np.ndarray,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
@@ -28,14 +28,33 @@ class StereoVoEstimator(VoEstimator):
             np.ndarray: Reprojection residuals (Flattened)
         """
         # Create the projection matrix for the i-1'th image and i'th image
+        transf_inv = np.eye(4)
+        transf_inv[:3, :3] = transf[:3, :3].T
+        transf_inv[:3, 3] = -transf[:3, :3].T @ transf[:3, 3]
         f_projection = self.P_l @ transf
-        b_projection = self.P_l @ np.linalg.inv(transf)
+        b_projection = self.P_l @ transf_inv
 
         q1_pred = curr_3d_pts.T @ f_projection.T        # Project 3D points from i'th image to i-1'th image
         q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]      # Un-homogenize
         q2_pred = prev_3d_pts.T @ b_projection.T        # Project 3D points from i-1'th image to i'th image
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]      # Un-homogenize
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
+        return residuals
+
+    def point_reprojection_residuals(
+        self,
+        transf: np.ndarray,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray,
+    ) -> np.ndarray:
+        transf_inv = np.eye(4)
+        transf_inv[:3, :3] = transf[:3, :3].T
+        transf_inv[:3, 3] = -transf[:3, :3].T @ transf[:3, 3]
+        f_reprojection = transf @ prev_pts
+        b_reprojection = transf_inv @ curr_pts
+        e1 = curr_pts - f_reprojection
+        e2 = prev_pts - b_reprojection
+        residuals = np.vstack([e1[:3], e2[:3]]).flatten()
         return residuals
 
 
@@ -117,7 +136,7 @@ class LmBasedEstimator(StereoVoEstimator):
         ones = np.ones((p_pixes.shape[0], 1))
         p3d_pts = np.hstack([p3d_pts, ones]).T
         c3d_pts = np.hstack([c3d_pts, ones]).T
-        return self.reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
+        return self.image_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
 
 
 class SvdBasedEstimator(StereoVoEstimator):
@@ -185,38 +204,35 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
     ) -> np.ndarray:
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
-
         min_error = 1e10
         early_termination = 0
-        T = None
         sample_num = 3
+
+        T = None
         for _ in range(self.max_trial):
             sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
             sample_T = self.svd_based_estimate(sample_prev_3d_pts, sample_curr_3d_pts)
-            if sample_T is None or np.linalg.det(sample_T[:3, :3]) < 0:
-                continue
 
             # Error estimation
-            res = self.reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            res = res.reshape((prev_3d_pts.shape[1] * 2, 2))
+            res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+            res = res.reshape((prev_3d_pts.shape[1] * 2, -1))
             error_pred = res[:prev_3d_pts.shape[1], :]  # Reprojection error against i to i-1
             error_curr = res[prev_3d_pts.shape[1]:, :]  # Reprojection error against i-1 to i
 
             # Find inliner and re-estimate
             inlier_idx = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
+            inlier_idx = np.unique(inlier_idx)
             if len(inlier_idx) < 10:
                 continue
             inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
             inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
             inliner_T = self.svd_based_estimate(inliner_prev_3d_pts, inliner_curr_3d_pts)
-            if inliner_T is None or np.linalg.det(inliner_T[:3, :3]) < 0:
-                continue
 
-            res = self.reprojection_residuals(sample_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
-            res = res.reshape((len(inlier_idx) * 2, 2))
-            error = np.mean(np.linalg.norm(res, axis=1))
+            res = self.point_reprojection_residuals(inliner_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
+            res = res.reshape((len(inlier_idx) * 2, -1))
+            error = np.linalg.norm(np.mean(res, axis=1))
 
             if error < min_error:
                 min_error = error
