@@ -92,7 +92,7 @@ class LmBasedEstimator(StereoVoEstimator):
 
             # Calculate the error for the optimized transformation
             res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            res = res.reshape((prev_3d_pts.shape[0] * 2, 2))
+            res = res.reshape((prev_3d_pts.shape[0] * 2, -1))
             err = np.sum(np.linalg.norm(res, axis=1))
 
             # Check if the error is less the the current min error. Save the result if it is
@@ -163,11 +163,13 @@ class SvdBasedEstimator(StereoVoEstimator):
         Returns:
             np.ndarray: Transformation matrix in homogeneous coordinates
         """
-        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((4, -1))
-        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((4, -1))
+        prev_3d_pts = prev_3d_pts[: 3, :]
+        curr_3d_pts = curr_3d_pts[: 3, :]
+        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((3, -1))
+        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((3, -1))
 
         R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
-        t = avg_curr_3d_pts[:3, :] - R @ avg_prev_3d_pts[:3, :]
+        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
         T = np.eye(4)
         T[: 3, : 3] = R.T
         T[: 3, 3] = t[: 3, 0]
