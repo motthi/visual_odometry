@@ -28,9 +28,7 @@ class StereoVoEstimator(VoEstimator):
             np.ndarray: Reprojection residuals (Flattened)
         """
         # Create the projection matrix for the i-1'th image and i'th image
-        transf_inv = np.eye(4)
-        transf_inv[:3, :3] = transf[:3, :3].T
-        transf_inv[:3, 3] = -transf[:3, :3].T @ transf[:3, 3]
+        transf_inv = np.linalg.inv(transf)
         f_projection = self.P_l @ transf
         b_projection = self.P_l @ transf_inv
 
@@ -47,9 +45,11 @@ class StereoVoEstimator(VoEstimator):
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
         prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
-        transf_inv = np.eye(4)
-        transf_inv[:3, :3] = transf[:3, :3].T
-        transf_inv[:3, 3] = -transf[:3, :3].T @ transf[:3, 3]
+        transf_inv = np.linalg.inv(transf)
+        # f_reprojection = prev_pts.T @ transf
+        # b_reprojection = curr_pts.T @ transf_inv
+        # e1 = curr_pts - f_reprojection.T
+        # e2 = prev_pts - b_reprojection.T
         f_reprojection = transf @ prev_pts
         b_reprojection = transf_inv @ curr_pts
         e1 = curr_pts - f_reprojection
@@ -68,6 +68,9 @@ class LmBasedEstimator(StereoVoEstimator):
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
         prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
     ) -> np.ndarray:
+        if prev_pixes.shape[0] < 3:
+            return None
+
         # Initialize the min_error and early_termination counter
         min_error = float('inf')
         early_termination = 0
@@ -169,9 +172,12 @@ class SvdBasedEstimator(StereoVoEstimator):
         avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((3, -1))
 
         R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
-        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        rot_prev = R @ prev_3d_pts
+        rot_prev_mean = np.mean(rot_prev, axis=1).reshape((3, -1))
+        # t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        t = avg_curr_3d_pts - rot_prev_mean
         T = np.eye(4)
-        T[: 3, : 3] = R.T
+        T[: 3, : 3] = R
         T[: 3, 3] = t[: 3, 0]
         return T
 
@@ -185,15 +191,15 @@ class SvdBasedEstimator(StereoVoEstimator):
         Returns:
             np.ndarray: Rotation matrix in shape 3x3
         """
-        U, _, V = np.linalg.svd(pts1[:3, :] @ pts2[:3, :].T)
+        U, _, V = np.linalg.svd(pts1 @ pts2.T)
         S = np.eye(3)
-        S[2, 2] = np.linalg.det(V.T @ U.T)  # For cope with reflection
+        S[2, 2] = np.linalg.det(V.T @ U.T)  # To cope with reflection
         R = V.T @ S @ U.T
         return R
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
-    def __init__(self, P_l, max_trial: int = 100, early_termination_thd: int = 20, inlier_thd: float = 1.5):
+    def __init__(self, P_l, max_trial: int = 500, early_termination_thd: int = 20, inlier_thd: float = 0.01):
         super().__init__(P_l)
         self.max_trial = max_trial
         self.early_termination_thd = early_termination_thd
@@ -212,7 +218,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
 
         T = None
         for _ in range(self.max_trial):
-            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num)
+            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num, replace=False)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
             sample_T = self.svd_based_estimate(sample_prev_3d_pts, sample_curr_3d_pts)
@@ -220,21 +226,24 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             # Error estimation
             res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
             res = res.reshape((prev_3d_pts.shape[1] * 2, -1))
-            error_pred = res[:prev_3d_pts.shape[1], :]  # Reprojection error against i to i-1
-            error_curr = res[prev_3d_pts.shape[1]:, :]  # Reprojection error against i-1 to i
+            error_pred = np.linalg.norm(res[:prev_3d_pts.shape[1], :], axis=1)  # Reprojection error against i to i-1
+            error_curr = np.linalg.norm(res[prev_3d_pts.shape[1]:, :], axis=1)  # Reprojection error against i-1 to i
 
             # Find inliner and re-estimate
             inlier_idx = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
-            inlier_idx = np.unique(inlier_idx)
             if len(inlier_idx) < 10:
                 continue
-            inliner_prev_3d_pts = prev_3d_pts[:, inlier_idx]
-            inliner_curr_3d_pts = curr_3d_pts[:, inlier_idx]
-            inliner_T = self.svd_based_estimate(inliner_prev_3d_pts, inliner_curr_3d_pts)
 
-            res = self.point_reprojection_residuals(inliner_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
-            res = res.reshape((len(inlier_idx) * 2, -1))
-            error = np.linalg.norm(np.mean(res, axis=1))
+            inlier_prev_3d_pts = prev_3d_pts[:, inlier_idx]
+            inlier_curr_3d_pts = curr_3d_pts[:, inlier_idx]
+            inliner_T = self.svd_based_estimate(inlier_prev_3d_pts, inlier_curr_3d_pts)
+
+            res = self.point_reprojection_residuals(inliner_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], inlier_prev_3d_pts, inlier_curr_3d_pts)
+            res = res.reshape((len(inlier_idx) * 2, -1))\
+
+            error_pred = np.linalg.norm(res[:len(inlier_idx), :], axis=1)  # Reprojection error against i to i-1
+            error_curr = np.linalg.norm(res[len(inlier_idx):, :], axis=1)  # Reprojection error against i-1 to i
+            error = np.mean(np.linalg.norm(res, axis=1))
 
             if error < min_error:
                 min_error = error
@@ -244,4 +253,10 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
                 early_termination += 1
             if early_termination > self.early_termination_thd:
                 break
+
+        # FIXME: This is a hack to cope with the reflection
+        if T is not None:
+            T[:3, 3] = -T[:3, 3]
+            T = np.linalg.inv(T)
+
         return T

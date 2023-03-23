@@ -150,7 +150,7 @@ class MonocularVisualOdometry(VisualOdometry):
         right_pair (list): Contains the rotation matrix and translation vector
         """
         def sum_z_cal_relative_scale(R, t):
-            T = self._form_transf(R, t)
+            T = form_transf(R, t)
             P = np.matmul(np.concatenate((self.K_l, np.zeros((3, 1))), axis=1), T)    # Make the projection matrix
             hom_Q1 = cv2.triangulatePoints(self.P_l, P, q1.T, q2.T)
             hom_Q2 = np.matmul(T, hom_Q1)
@@ -269,10 +269,10 @@ class StereoVisualOdometry(VisualOdometry):
         # Calculate essential matrix and the correct pose
         prev_3d_pts, curr_3d_pts = self.calc_3d(l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts)
 
-        transform_matrix = self.estimator.estimate(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
+        transf = self.estimator.estimate(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-        return transform_matrix
+        return transf
 
     def find_right_kpts(
             self,

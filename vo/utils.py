@@ -63,6 +63,6 @@ def quaternion_mean(quats: np.ndarray):
 def form_transf(R, t):
     T = np.eye(4, dtype=np.float64)
     T[:3, :3] = R
-    T[:3, 3] = -t
+    T[:3, 3] = t
     T[3, 3] = 1.0
     return T
