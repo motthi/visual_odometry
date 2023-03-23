@@ -21,10 +21,10 @@ if __name__ == "__main__":
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.json")
 
     # Specify the range of images to use
-    step = 1
+    step = 3
     start = 0
     last = last_img_idx
-    # last = 50
+    # last = 150
     l_imgs = l_imgs[start:last:step]
     r_imgs = r_imgs[start:last:step]
     real_img_poses = real_img_poses[start:last:step]
@@ -64,7 +64,7 @@ if __name__ == "__main__":
         detector, descriptor,
         # estimator=LmBasedEstimator(lcam_params['projection']),
         # estimator=SvdBasedEstimator(lcam_params['projection']),
-        estimator=RansacSvdBasedEstimator(lcam_params['projection'], inliner_thd=1.5),
+        estimator=RansacSvdBasedEstimator(lcam_params['projection'], max_trial=500, early_termination_thd=20, inlier_thd=0.05),
         matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
         img_mask=img_mask, num_disp=50,
         # use_disp=False
