@@ -20,9 +20,9 @@ def draw_detected_kpts(img: np.ndarray, kpts: list, descs: list, flag: int = cv2
     kpt_img = img.copy()
     if flag == "p" or flag == "points":
         for kpt in kpts:
-            cv2.circle(kpt_img, (int(kpt.pt[0]), int(kpt.pt[1])), ps, (0, 255, 0), -1)
+            cv2.circle(kpt_img, (int(kpt.pt[0]), int(kpt.pt[1])), ps, c, -1)
     else:
-        cv2.drawKeypoints(kpt_img, kpts, kpt_img, color=(0, 255, 0), flags=flag)
+        cv2.drawKeypoints(kpt_img, kpts, kpt_img, color=c, flags=flag)
     return kpt_img
 
 
@@ -87,10 +87,11 @@ def draw_vo_poses_and_quats(
     xlim: tuple[float, float] = None,
     ylim: tuple[float, float] = None,
     zlim: tuple[float, float] = None,
+    step=5
 ):
     fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
     draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, draw_data)
-    for e_pose, e_quat, ri_pose, ri_quat in list(zip(estimated_poses, estimated_quats, real_img_poses, real_img_quats))[::5]:
+    for e_pose, e_quat, ri_pose, ri_quat in list(zip(estimated_poses, estimated_quats, real_img_poses, real_img_quats))[::step]:
         e_rot = R.from_quat(e_quat).as_matrix()
         ri_rot = R.from_quat(ri_quat).as_matrix()
         draw_coordinate(ax, e_rot, e_pose[:, np.newaxis], scale=scale)

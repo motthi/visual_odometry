@@ -62,6 +62,8 @@ class LmBasedEstimator(StereoVoEstimator):
     def __init__(self, P_l, max_iter=100):
         super().__init__(P_l)
         self.max_iter = max_iter
+        self.iter_cnts = []
+        self.min_erros = []
 
     def estimate(
         self,
@@ -75,7 +77,7 @@ class LmBasedEstimator(StereoVoEstimator):
         min_error = float('inf')
         early_termination = 0
         early_termination_thd = 10
-        for _ in range(self.max_iter):
+        for cnt in range(self.max_iter):
             sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
 
             sample_q1 = prev_pixes[sample_idx]
@@ -108,6 +110,8 @@ class LmBasedEstimator(StereoVoEstimator):
             if early_termination == early_termination_thd:
                 # If we have not fund any better result in early_termination_threshold iterations
                 break
+        self.iter_cnts.append(cnt)
+        self.min_erros.append(min_error)
         r = out_pose[:3]             # Get the rotation vector
         R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
         t = -out_pose[3:]            # Get the translation vector
@@ -140,6 +144,12 @@ class LmBasedEstimator(StereoVoEstimator):
         p3d_pts = np.hstack([p3d_pts, ones]).T
         c3d_pts = np.hstack([c3d_pts, ones]).T
         return self.image_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
+        # return self.point_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
+
+    def save_results(self, src: str):
+        self.iter_cnts = np.array(self.iter_cnts)
+        self.min_erros = np.array(self.min_erros)
+        np.savez(src, iter_cnts=self.iter_cnts, min_erros=self.min_erros)
 
 
 class SvdBasedEstimator(StereoVoEstimator):
@@ -197,6 +207,9 @@ class SvdBasedEstimator(StereoVoEstimator):
         R = V.T @ S @ U.T
         return R
 
+    def save_results(self, *args, **kwargs):
+        print("No results to save")
+
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
     def __init__(self, P_l, max_trial: int = 500, early_termination_thd: int = 20, inlier_thd: float = 0.01):
@@ -204,6 +217,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         self.max_trial = max_trial
         self.early_termination_thd = early_termination_thd
         self.inlier_thd = inlier_thd
+        self.iter_cnts = []
+        self.min_errors = []
 
     def estimate(
         self,
@@ -217,7 +232,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         sample_num = 3
 
         T = None
-        for _ in range(self.max_trial):
+        for cnt in range(self.max_trial):
             sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num, replace=False)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
             sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
@@ -253,6 +268,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
                 early_termination += 1
             if early_termination > self.early_termination_thd:
                 break
+        self.iter_cnts.append(cnt)
+        self.min_errors.append(min_error)
 
         # FIXME: This is a hack to cope with the reflection
         if T is not None:
@@ -260,3 +277,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             T = np.linalg.inv(T)
 
         return T
+
+    def save_results(self, src: str):
+        self.iter_cnts = np.array(self.iter_cnts)
+        self.min_errors = np.array(self.min_errors)
+        np.savez(src, iter_cnts=self.iter_cnts, min_erros=self.min_errors)
