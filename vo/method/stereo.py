@@ -183,9 +183,9 @@ class SvdBasedEstimator(StereoVoEstimator):
 
         R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
         rot_prev = R @ prev_3d_pts
-        rot_prev_mean = np.mean(rot_prev, axis=1).reshape((3, -1))
-        # t = avg_curr_3d_pts - R @ avg_prev_3d_pts
-        t = avg_curr_3d_pts - rot_prev_mean
+        # rot_prev_mean = np.mean(rot_prev, axis=1).reshape((3, -1))
+        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        # t = avg_curr_3d_pts - rot_prev_mean
         T = np.eye(4)
         T[: 3, : 3] = R
         T[: 3, 3] = t[: 3, 0]
@@ -212,7 +212,7 @@ class SvdBasedEstimator(StereoVoEstimator):
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
-    def __init__(self, P_l, max_trial: int = 500, early_termination_thd: int = 20, inlier_thd: float = 0.01):
+    def __init__(self, P_l, max_trial: int = 20, early_termination_thd: int = 20, inlier_thd: float = 0.01):
         super().__init__(P_l)
         self.max_trial = max_trial
         self.early_termination_thd = early_termination_thd
@@ -228,7 +228,6 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
         min_error = 1e10
-        early_termination = 0
         sample_num = 3
 
         T = None
@@ -262,12 +261,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
 
             if error < min_error:
                 min_error = error
-                early_termination = 0
                 T = inliner_T
-            else:
-                early_termination += 1
-            if early_termination > self.early_termination_thd:
-                break
         self.iter_cnts.append(cnt)
         self.min_errors.append(min_error)
 
@@ -281,4 +275,10 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
     def save_results(self, src: str):
         self.iter_cnts = np.array(self.iter_cnts)
         self.min_errors = np.array(self.min_errors)
-        np.savez(src, iter_cnts=self.iter_cnts, min_erros=self.min_errors)
+        np.savez(
+            src,
+            max_trial=self.max_trial,
+            inlier_thd=self.inlier_thd,
+            iter_cnts=self.iter_cnts,
+            min_errors=self.min_errors
+        )
