@@ -212,10 +212,9 @@ class SvdBasedEstimator(StereoVoEstimator):
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
-    def __init__(self, P_l, max_trial: int = 20, early_termination_thd: int = 20, inlier_thd: float = 0.01):
+    def __init__(self, P_l, max_trial: int = 20, inlier_thd: float = 0.01):
         super().__init__(P_l)
         self.max_trial = max_trial
-        self.early_termination_thd = early_termination_thd
         self.inlier_thd = inlier_thd
         self.iter_cnts = []
         self.min_errors = []

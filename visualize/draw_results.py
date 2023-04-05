@@ -34,7 +34,7 @@ if __name__ == "__main__":
             plt.close()
 
         # All detected keypoints
-        kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"])
+        kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"], flag="p")
         cv2.imwrite(f"{data_dir}kpts/{idx:04d}.png", kpt_img)
 
         # Matchd keypoints

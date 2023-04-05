@@ -54,10 +54,10 @@ class VisualOdometry():
         for idx in tqdm(range(1, last_img_idx)):
             s_time = time.time()
             transf = self.estimate_pose()
-            self.Ts.append(transf)
             if transf is not None:
                 cur_pose = cur_pose @ transf
             self.process_times.append(time.time() - s_time)
+            self.Ts.append(transf)
             poses.append(cur_pose)
             self.cnt += 1
             if transf is None:
@@ -401,7 +401,6 @@ class StereoVisualOdometry(VisualOdometry):
         if os.path.exists(base_dir):
             shutil.rmtree(base_dir)
         os.makedirs(base_dir, exist_ok=True)
-        self.estimator.save_results(f"{base_dir}/estimator_result.npz")
         for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
             kpts = self.left_kpts[i]
             np.savez(

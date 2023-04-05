@@ -33,7 +33,7 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.01)
+    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.005)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -64,16 +64,16 @@ if __name__ == "__main__":
         detector, descriptor,
         # estimator=LmBasedEstimator(lcam_params['projection']),
         # estimator=SvdBasedEstimator(lcam_params['projection']),
-        estimator=RansacSvdBasedEstimator(lcam_params['projection'], max_trial=500, early_termination_thd=20, inlier_thd=0.05),
+        estimator=RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05),
         matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
         img_mask=img_mask, num_disp=50,
-        # use_disp=False
         use_disp=True
     )
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
 
     vo.save_results(last, start, step, f"{data_dir}/npz/")
+    vo.estimator.save_results(f"{data_dir}/estimator_result.npz")
     np.savez(
         f"{data_dir}vo_result_poses.npz",
         estimated_poses=estimated_poses, estimated_quats=estimated_quats,
