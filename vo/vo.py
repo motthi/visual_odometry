@@ -340,17 +340,41 @@ class StereoVisualOdometry(VisualOdometry):
         return list(kpt1_l), list(kpt2_l), matches_masked, pq_l, pq_r, cq_l, cq_r
 
     def stereo_match(self, pts, cnt):
+        def parabola_subpixel(R, i):
+            if R.shape[1] == i + 1:
+                return i
+            R0 = R[0][i]
+            Rp1 = R[0][i + 1]
+            Rm1 = R[0][i - 1]
+            parabola_d = (Rm1 - Rp1) / (2 * Rm1 - 4 * R0 + 2 * Rp1)
+            return i + parabola_d
+
+        def linear_subpixel(R, i):
+            if R.shape[1] == i + 1:
+                return i
+            R0 = R[0][i]
+            Rp1 = R[0][i + 1]
+            Rm1 = R[0][i - 1]
+            if Rp1 < Rm1:
+                linear_d = (Rp1 - Rm1) / (2 * (R0 - Rm1))
+            else:
+                linear_d = (Rp1 - Rm1) / (2 * (R0 - Rp1))
+            return i + linear_d
+
         limg = cv2.cvtColor(self.left_imgs[cnt], cv2.COLOR_BGR2GRAY)
         rimg = cv2.cvtColor(self.right_imgs[cnt], cv2.COLOR_BGR2GRAY)
         WIN_SIZE = 3
         disps = []
         for pt in pts:
             pt_int = (int(pt[0]), int(pt[1]))
-            templ = limg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, pt_int[0] - WIN_SIZE:pt_int[0] + WIN_SIZE]
-            result = cv2.matchTemplate(rimg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, :pt_int[0]], templ, cv2.TM_SQDIFF)
-            # cv2.TM_CCOEFF_NORMEDの場合は第4戻り値を使う
-            _, _, loc, _ = cv2.minMaxLoc(result)
-            disp = pt[0] - loc[0] - WIN_SIZE // 2       # テンプレートの中心に来るように補正
+            temp_img = limg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, pt_int[0] - WIN_SIZE:pt_int[0] + WIN_SIZE]
+            ref_img = rimg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, :pt_int[0]]
+            result = cv2.matchTemplate(ref_img, temp_img, cv2.TM_SQDIFF)
+            _, _, loc, _ = cv2.minMaxLoc(result)    # cv2.TM_CCOEFF_NORMEDの場合は第4戻り値を使う
+            temp_loc = loc[0]
+            # temp_loc = parabola_subpixel(result, temp_loc)
+            temp_loc = linear_subpixel(result, temp_loc)
+            disp = pt[0] - temp_loc - WIN_SIZE       # テンプレートの中心に来るように補正
             disps.append(disp)
         return disps
 
