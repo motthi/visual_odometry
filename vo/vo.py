@@ -223,7 +223,7 @@ class StereoVisualOdometry(VisualOdometry):
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
         detector, descriptor, matcher, estimator: StereoVoEstimator, img_mask=None,
-        num_disp: int = 300,
+        num_disp: int = 50,
         method: str = "svd", use_disp: bool = False
     ) -> None:
         super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, estimator, img_mask)
@@ -372,8 +372,8 @@ class StereoVisualOdometry(VisualOdometry):
             result = cv2.matchTemplate(ref_img, temp_img, cv2.TM_SQDIFF)
             _, _, loc, _ = cv2.minMaxLoc(result)    # cv2.TM_CCOEFF_NORMEDの場合は第4戻り値を使う
             temp_loc = loc[0]
-            # temp_loc = parabola_subpixel(result, temp_loc)
-            temp_loc = linear_subpixel(result, temp_loc)
+            temp_loc = parabola_subpixel(result, temp_loc)
+            # temp_loc = linear_subpixel(result, temp_loc)
             disp = pt[0] - temp_loc - WIN_SIZE       # テンプレートの中心に来るように補正
             disps.append(disp)
         return disps

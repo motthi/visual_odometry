@@ -182,10 +182,7 @@ class SvdBasedEstimator(StereoVoEstimator):
         avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((3, -1))
 
         R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
-        rot_prev = R @ prev_3d_pts
-        # rot_prev_mean = np.mean(rot_prev, axis=1).reshape((3, -1))
         t = avg_curr_3d_pts - R @ avg_prev_3d_pts
-        # t = avg_curr_3d_pts - rot_prev_mean
         T = np.eye(4)
         T[: 3, : 3] = R
         T[: 3, 3] = t[: 3, 0]
@@ -239,30 +236,30 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             # Error estimation
             res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
             res = res.reshape((prev_3d_pts.shape[1] * 2, -1))
-            error_pred = np.linalg.norm(res[:prev_3d_pts.shape[1], :], axis=1)  # Reprojection error against i to i-1
-            error_curr = np.linalg.norm(res[prev_3d_pts.shape[1]:, :], axis=1)  # Reprojection error against i-1 to i
+            # error_pred_flag = np.linalg.norm(res[:prev_3d_pts.shape[1], :], axis=1) < self.inlier_thd  # Reprojection error against i to i-1
+            # error_curr_flag = np.linalg.norm(res[prev_3d_pts.shape[1]:, :], axis=1) < self.inlier_thd  # Reprojection error against i-1 to i
+            error_pred_flag = np.all(res[:prev_3d_pts.shape[1], :] < self.inlier_thd, axis=1)
+            error_curr_flag = np.all(res[prev_3d_pts.shape[1]:, :] < self.inlier_thd, axis=1)
 
             # Find inliner and re-estimate
-            inlier_idx = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
+            inlier_idx = np.where(np.logical_and(error_pred_flag, error_curr_flag))[0]
             if len(inlier_idx) < 10:
                 continue
 
             inlier_prev_3d_pts = prev_3d_pts[:, inlier_idx]
             inlier_curr_3d_pts = curr_3d_pts[:, inlier_idx]
             inlier_T = self.svd_based_estimate(inlier_prev_3d_pts, inlier_curr_3d_pts)
-            if np.fabs(inlier_T[1, 3]) > 0.05:
-                continue
+            # if np.fabs(inlier_T[1, 3]) > 0.05:
+            #     continue
 
             res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], inlier_prev_3d_pts, inlier_curr_3d_pts)
-            res = res.reshape((len(inlier_idx) * 2, -1))\
-
-            error_pred = np.linalg.norm(res[:len(inlier_idx), :], axis=1)  # Reprojection error against i to i-1
-            error_curr = np.linalg.norm(res[len(inlier_idx):, :], axis=1)  # Reprojection error against i-1 to i
-            error = np.mean(np.linalg.norm(res, axis=1))
+            res = res.reshape((len(inlier_idx) * 2, -1))
+            error = np.average(np.linalg.norm(res, axis=1))
 
             if error < min_error:
                 min_error = error
                 T = inlier_T
+
         self.iter_cnts.append(cnt)
         self.min_errors.append(min_error)
 

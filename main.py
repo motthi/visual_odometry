@@ -66,8 +66,8 @@ if __name__ == "__main__":
         # estimator=SvdBasedEstimator(lcam_params['projection']),
         estimator=RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05),
         matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
-        img_mask=img_mask, num_disp=50,
-        use_disp=True
+        img_mask=img_mask,
+        # use_disp=True
     )
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
