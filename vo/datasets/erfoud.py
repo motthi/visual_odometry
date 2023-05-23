@@ -15,7 +15,7 @@ def load_init_pose(src: str):
 
 
 def load_meta_data(dir: str, i: int):
-    with open(f"{dir}nav_cam/metadata/{i:05d}.txt") as f:
+    with open(f"{dir}/nav_cam/metadata/{i:05d}.txt") as f:
         lines = f.readlines()
     lines = [line.split() for line in lines]
     datum = [float(col) for col in lines[0]]
@@ -23,7 +23,7 @@ def load_meta_data(dir: str, i: int):
 
 
 def camera_params(src):
-    with open(f"{src}nav_cam/navcam-calibration.yaml") as f:
+    with open(f"{src}/nav_cam/navcam-calibration.yaml") as f:
         obj = yaml.safe_load(f)
     intrinsic_l = np.array([obj['camera_matrix_1']['data']]).reshape(3, 3)
     intrinsic_r = np.array([obj['camera_matrix_2']['data']]).reshape(3, 3)
@@ -55,8 +55,8 @@ def load_images(src: str, img_num: int, step: int = 1):
     l_imgs = []
     r_imgs = []
     for i in range(img_num):
-        l_img = cv2.imread(f"{src}nav_cam/rectified/left/{i*step:05d}.pgm")
-        r_img = cv2.imread(f"{src}nav_cam/rectified/right/{i*step:05d}.pgm")
+        l_img = cv2.imread(f"{src}/nav_cam/rectified/left/{i*step:05d}.pgm")
+        r_img = cv2.imread(f"{src}/nav_cam/rectified/right/{i*step:05d}.pgm")
         l_imgs.append(l_img)
         r_imgs.append(r_img)
     return l_imgs, r_imgs

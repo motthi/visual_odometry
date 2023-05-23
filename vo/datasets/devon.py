@@ -54,10 +54,10 @@ def load_images(src: str = "./", img_num: int = 30, step: int = 5, seq=0):
     l_imgs = []
     r_imgs = []
     for i in range(img_num):
-        l_img = cv2.imread(f"{src}sequence-{seq:02d}/color-rectified-1280x960-s00/color-rectified-left-{i*step+1:06d}.ppm")
-        r_img = cv2.imread(f"{src}sequence-{seq:02d}/color-rectified-1280x960-s00/color-rectified-right-{i*step+1:06d}.ppm")
-        # l_img = cv2.imread(f"{src}sequence-{seq:02d}/color-raw-1280x960-s00/color-raw-left-{i*step+1:06d}.ppm")
-        # r_img = cv2.imread(f"{src}sequence-{seq:02d}/color-raw-1280x960-s00/color-raw-right-{i*step+1:06d}.ppm")
+        l_img = cv2.imread(f"{src}/sequence-{seq:02d}/color-rectified-1280x960-s00/color-rectified-left-{i*step+1:06d}.ppm")
+        r_img = cv2.imread(f"{src}/sequence-{seq:02d}/color-rectified-1280x960-s00/color-rectified-right-{i*step+1:06d}.ppm")
+        # l_img = cv2.imread(f"{src}/sequence-{seq:02d}/color-raw-1280x960-s00/color-raw-left-{i*step+1:06d}.ppm")
+        # r_img = cv2.imread(f"{src}/sequence-{seq:02d}/color-raw-1280x960-s00/color-raw-right-{i*step+1:06d}.ppm")
         l_imgs.append(l_img)
         r_imgs.append(r_img)
     return l_imgs, r_imgs

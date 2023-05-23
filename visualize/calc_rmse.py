@@ -1,6 +1,9 @@
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from vo.utils import *
+
+DATASET_DIR = os.environ['DATASET_DIR']
 
 
 def relative_pos_diff(estimated_poses, truth_poses):
@@ -69,7 +72,7 @@ def draw_abs_erros(e_poses, r_poses, save_src=None):
 
 
 if __name__ == "__main__":
-    data_dir = "../datasets/aki_20221025_4/"
+    data_dir = f"{DATASET_DIR}/AKI/aki_20221025_4/"
     # data_dir = "./datasets/feature_rich_rock/"
     estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")
     rmses = []
@@ -77,9 +80,9 @@ if __name__ == "__main__":
         rmses.append(np.linalg.norm(e_pos - r_pos))
     e_diffs, r_diffs = relative_pos_diff(estimated_poses, img_poses)
 
-    draw_relative_position(e_diffs, r_diffs, save_src=f"{data_dir}relative_pos.png")
-    draw_relative_position_error(e_diffs, r_diffs, save_src=f"{data_dir}relative_error.png")
-    draw_absolute_position_error(estimated_poses, img_poses, save_src=f"{data_dir}absolute_error.png")
+    draw_relative_position(e_diffs, r_diffs, save_src=f"{data_dir}/relative_pos.png")
+    draw_relative_position_error(e_diffs, r_diffs, save_src=f"{data_dir}/relative_error.png")
+    draw_absolute_position_error(estimated_poses, img_poses, save_src=f"{data_dir}/absolute_error.png")
 
     # data_dir = "./datasets/feature_less_rock_05/"
     # e_pos_B, _, i_pos_B = load_result_poses(f"{data_dir}/vo_result_poses.npz")
@@ -87,4 +90,4 @@ if __name__ == "__main__":
     # e_pos_C, _, i_pos_C = load_result_poses(f"{data_dir}/vo_result_poses.npz")
     # data_dir = "./datasets/feature_rich_rock/"
     # e_pos_D, _, i_pos_D = load_result_poses(f"{data_dir}/vo_result_poses.npz")
-    # draw_abs_erros([e_pos_B, e_pos_C, e_pos_D], [i_pos_B, i_pos_C, i_pos_D], save_src=f"{data_dir}absolute_errors.png")
+    # draw_abs_erros([e_pos_B, e_pos_C, e_pos_D], [i_pos_B, i_pos_C, i_pos_D], save_src=f"{data_dir}/absolute_errors.png")
