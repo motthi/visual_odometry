@@ -12,12 +12,12 @@ def create_save_directories(dir: str):
     Args:
         src (str): Dataset directory.
     """
-    shutil.rmtree(f"{dir}disps/") if os.path.exists(f"{dir}disps/") else None
-    shutil.rmtree(f"{dir}kpts/") if os.path.exists(f"{dir}kpts/") else None
-    shutil.rmtree(f"{dir}matched_kpts/") if os.path.exists(f"{dir}matched_kpts/") else None
-    os.makedirs(f"{dir}disps/", exist_ok=True)
-    os.makedirs(f"{dir}kpts/", exist_ok=True)
-    os.makedirs(f"{dir}matched_kpts/", exist_ok=True)
+    shutil.rmtree(f"{dir}/disps/") if os.path.exists(f"{dir}disps/") else None
+    shutil.rmtree(f"{dir}/kpts/") if os.path.exists(f"{dir}kpts/") else None
+    shutil.rmtree(f"{dir}/matched_kpts/") if os.path.exists(f"{dir}matched_kpts/") else None
+    os.makedirs(f"{dir}/disps/", exist_ok=True)
+    os.makedirs(f"{dir}/kpts/", exist_ok=True)
+    os.makedirs(f"{dir}/matched_kpts/", exist_ok=True)
 
 
 def load_images(src: str = "./datasets", last_img_idx: int = 30) -> list[np.ndarray, np.ndarray]:
@@ -34,8 +34,8 @@ def load_images(src: str = "./datasets", last_img_idx: int = 30) -> list[np.ndar
     l_imgs = []
     r_imgs = []
     for i in range(0, last_img_idx):
-        l_img = cv2.imread(f"{src}left/{i:04d}.png")
-        r_img = cv2.imread(f"{src}right/{i:04d}.png")
+        l_img = cv2.imread(f"{src}/left/{i:04d}.png")
+        r_img = cv2.imread(f"{src}/right/{i:04d}.png")
         l_imgs.append(l_img)
         r_imgs.append(r_img)
     return l_imgs, r_imgs

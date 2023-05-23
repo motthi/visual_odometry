@@ -1,5 +1,6 @@
 import cv2
 import glob
+import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from vo.vo import *
@@ -9,15 +10,17 @@ from vo.utils import *
 from vo.datasets.zed2 import *
 from vo.method.stereo import *
 
+DATASET_DIR = os.environ['DATASET_DIR']
+
 if __name__ == "__main__":
     # Load datasets
-    data_dir = "./datasets/aki_20230227_2/"
-    last_img_idx = len(glob.glob(data_dir + "left/*.png"))
+    data_dir = f"{DATASET_DIR}/AKI/aki_20230227_2"
+    last_img_idx = len(glob.glob(f"{data_dir}/left/*.png"))
     if last_img_idx == 0:
         raise FileNotFoundError("No images found in the dataset directory.")
     l_imgs, r_imgs = load_images(f"{data_dir}", last_img_idx)
-    real_poses, real_quats = read_poses_quats(f"{data_dir}tf_data.csv")
-    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}rover_camera_pose.csv")
+    real_poses, real_quats = read_poses_quats(f"{data_dir}/tf_data.csv")
+    real_img_poses, real_img_quats = read_camera_pose(f"{data_dir}/rover_camera_pose.csv")
     lcam_params, rcam_params = camera_params(f"{data_dir}/camera_params.json")
 
     # Specify the range of images to use
