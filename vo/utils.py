@@ -12,9 +12,9 @@ def create_save_directories(dir: str):
     Args:
         src (str): Dataset directory.
     """
-    shutil.rmtree(f"{dir}/disps/") if os.path.exists(f"{dir}disps/") else None
-    shutil.rmtree(f"{dir}/kpts/") if os.path.exists(f"{dir}kpts/") else None
-    shutil.rmtree(f"{dir}/matched_kpts/") if os.path.exists(f"{dir}matched_kpts/") else None
+    shutil.rmtree(f"{dir}/disps/") if os.path.exists(f"{dir}/disps/") else None
+    shutil.rmtree(f"{dir}/kpts/") if os.path.exists(f"{dir}/kpts/") else None
+    shutil.rmtree(f"{dir}/matched_kpts/") if os.path.exists(f"{dir}/matched_kpts/") else None
     os.makedirs(f"{dir}/disps/", exist_ok=True)
     os.makedirs(f"{dir}/kpts/", exist_ok=True)
     os.makedirs(f"{dir}/matched_kpts/", exist_ok=True)
