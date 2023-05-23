@@ -1,0 +1,12 @@
+detector:
+  harris:
+    blocksize: 5
+    ksize: 5
+    k: 0.04
+    threshold: 0.08
+
+stereo_vo:
+  disparity:
+    num_disp: 100
+    min_disp: 0
+    block_size: 10
