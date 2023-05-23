@@ -4,6 +4,7 @@ import cv2
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from vo.datasets.aki import *
 from vo.draw import *
 from vo.utils import create_save_directories
 from tqdm import tqdm
@@ -21,12 +22,13 @@ if __name__ == "__main__":
     step = result_data["step"]
     start = result_data["start_idx"]
     last = result_data["last_idx"]
+    dataset = AkiDataset(data_dir, start=start, last=last, step=step)
     create_save_directories(data_dir)
 
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
     for i, idx in enumerate(tqdm(range(start, last - step, step))):
-        img = cv2.imread(f"{data_dir}left/{idx:04d}.png")
+        img = cv2.imread(dataset.l_img_srcs[i])
         data = np.load(f"{data_dir}/npz/{idx:04d}.npz", allow_pickle=True)
 
         # Disparities
@@ -42,7 +44,7 @@ if __name__ == "__main__":
         # Matchd keypoints
         if i == 0:
             continue
-        prev_img = cv2.imread(f"{data_dir}left/{idx-step:04d}.png")
+        prev_img = cv2.imread(dataset.l_img_srcs[i])
         if prev_img is not None:
             match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
             cv2.imwrite(f"{data_dir}/matched_kpts/{idx:04d}.png", match_img)
