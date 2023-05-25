@@ -9,7 +9,7 @@ class ImageDataset():
             raise FileNotFoundError(f"Dataset directory {dataset_dir} does not exist.")
         self.dataset_dir = dataset_dir
         if last is not None and start > last:
-            raise IndexError(f'The start index must be larger than the last index, start: {start}, last: {last}')
+            raise ValueError(f'The start index must be larger than the last index, start: {start}, last: {last}')
         self.start = start
         self.last = last
         self.step = step

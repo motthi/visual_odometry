@@ -227,6 +227,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         sample_num = 3
 
         T = None
+        if prev_3d_pts.shape[1] < sample_num:
+            return T
         for cnt in range(self.max_trial):
             sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num, replace=False)
             sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
