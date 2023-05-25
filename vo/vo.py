@@ -49,18 +49,25 @@ class VisualOdometry():
     def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
         print(f"\nStart localization")
         warnings.simplefilter("ignore")
+
         poses = [init_pose]
         self.process_times = [None]
         cur_pose = init_pose
-        for idx in tqdm(range(1, last_img_idx)):
+
+        pbar = tqdm(range(1, last_img_idx))
+        for idx in pbar:
             s_time = time.time()
             transf = self.estimate_pose()
             if transf is not None:
                 cur_pose = cur_pose @ transf
-            self.process_times.append(time.time() - s_time)
+
+            ptime = time.time() - s_time
+            self.process_times.append(ptime)
             self.Ts.append(transf)
             poses.append(cur_pose)
             self.cnt += 1
+
+            pbar.set_description(f"{idx}/{last_img_idx-1} ({ptime:.2f}s)")
             if transf is None:
                 tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
         quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in poses])
