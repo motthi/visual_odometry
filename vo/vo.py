@@ -47,6 +47,7 @@ class VisualOdometry():
         self.process_times = [None]
 
     def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
+        print(f"\nStart localization")
         warnings.simplefilter("ignore")
         poses = [init_pose]
         self.process_times = [None]
