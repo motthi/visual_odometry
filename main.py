@@ -81,6 +81,7 @@ if __name__ == "__main__":
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
 
     vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
+    # save_trajectory(f"{save_dir}/traj.tum_f", None, estimated_poses, estimated_quats, 'tum')
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
     np.savez(
         f"{save_dir}/vo_result_poses.npz",

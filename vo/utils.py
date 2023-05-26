@@ -66,3 +66,17 @@ def form_transf(R, t):
     T[:3, 3] = t
     T[3, 3] = 1.0
     return T
+
+
+def save_trajectory(src:str, timestamps: np.ndarray, poses:np.ndarray, quats:np.ndarray, fmt:str='kitti'):
+    with open(src, 'w') as f:
+        if fmt == 'kitti':
+            for pose, quat in zip(poses, quats):
+                T = form_transf(R.from_quat(quat).as_matrix(), pose)
+                T = T.flatten()[:12]
+                f.write(f"{' '.join(map(str, T))}\n")
+        elif fmt == 'tum':
+            for timestamp, pose, quat in zip(timestamps, poses, quats):
+                f.write(f"{timestamp} {' '.join(map(str, pose))} {' '.join(map(str, quat))}\n")
+        else:
+            raise ValueError(f"Invalid format: {fmt}")

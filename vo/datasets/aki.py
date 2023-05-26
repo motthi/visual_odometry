@@ -45,13 +45,16 @@ class AkiDataset(ImageDataset):
     def read_all_poses_quats(self) -> list[np.ndarray]:
         with open(f"{self.dataset_dir}/tf_data.csv") as f:
             lines = f.readlines()
+        timestamps = []
         poses = []
         quats = []
         for line in lines:
             if "AKI" in line:
                 data = line.split(",")
+                timestamps.append(float(data[0]))
                 poses.append([float(data[5]), float(data[6]), float(data[7])])
                 quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[11])])
+        timestamps = np.array(timestamps, dtype=np.float32)
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
         return poses, quats
