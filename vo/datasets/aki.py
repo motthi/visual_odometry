@@ -29,6 +29,11 @@ class AkiDataset(ImageDataset):
         return lc_params, rc_params
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
+        """Load the poses and quaternions when the images were captured.
+
+        Returns:
+            list[np.ndarray]: timestamps, poses, quaternions
+        """
         with open(f"{self.dataset_dir}/rover_camera_pose.csv") as f:
             lines = f.readlines()
         timestamps = []
@@ -49,18 +54,26 @@ class AkiDataset(ImageDataset):
         return timestamps, poses, quats
 
     def read_all_poses_quats(self) -> list[np.ndarray]:
+        """Load the all poses and quaternions
+
+        Returns:
+            list[np.ndarray]: poses, quaternions
+        """
         with open(f"{self.dataset_dir}/tf_data.csv") as f:
             lines = f.readlines()
+        timestamps = []
         poses = []
         quats = []
         for line in lines:
             if "AKI" in line:
                 data = line.split(",")
+                timestamps.append(float(data[2]) * 1e-9)
                 poses.append([float(data[5]), float(data[6]), float(data[7])])
                 quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[11])])
+        timestamps = np.array(timestamps)
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        return poses, quats
+        return timestamps, poses, quats
 
 
 # heading = 0.0

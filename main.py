@@ -1,5 +1,4 @@
 import cv2
-import glob
 import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -34,7 +33,7 @@ if __name__ == "__main__":
 
     l_imgs, r_imgs = dataset.load_imgs()
     lcam_params, rcam_params = dataset.camera_params()
-    all_poses, all_quats = dataset.read_all_poses_quats()
+    _, all_poses, all_quats = dataset.read_all_poses_quats()
     cap_timestamps, cap_poses, cap_quats = dataset.read_captured_poses_quats()
     num_img = len(l_imgs)
 
