@@ -45,15 +45,15 @@ class MadmaxDataset(ImageDataset):
         T_lcam2rcam[:3, :3] = rot_lcam2rcam
         T_lcam2rcam[:3, 3] = trans_lcam2rcam
 
-        K_l = np.array(lcam_info['K']).reshape(3, 3)
-        K_r = np.array(rcam_info['K']).reshape(3, 3)
+        K_l = np.array(lcam_info['P']).reshape(3, 4)[:3, :3]
+        K_r = np.array(rcam_info['P']).reshape(3, 4)[:3, :3]
+        # K_l = np.array(lcam_info['K']).reshape(3, 3)
+        # K_r = np.array(rcam_info['K']).reshape(3, 3)
         E_l = T_B2lcam[:3, :]
         E_r = (T_lcam2rcam @ T_B2lcam)[:3, :]
 
         P_l = K_l @ E_l
         P_r = K_r @ E_r
-        # P_l = np.array(lcam_info['P']).reshape(3, 4)
-        # P_r = np.array(rcam_info['P']).reshape(3, 4)
 
         lc_params = {'intrinsic': K_l, 'extrinsic': E_l, 'projection': P_l}
         rc_params = {'intrinsic': K_r, 'extrinsic': E_r, 'projection': P_r}
@@ -61,38 +61,43 @@ class MadmaxDataset(ImageDataset):
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
         poses_data = {}
-        timestamps = []
+        ts = []
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
             poses_data[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
-            timestamps.append(float(data[0]))
+            ts.append(float(data[0]))
 
+        timestamps = []
         poses = []
         quats = []
         img_timestamp_re = re.compile(r'img_rect_left_(\d+).png')
         for img_src in self.l_img_srcs:
             img_timestamp = float(img_timestamp_re.search(img_src).group(1)) * 1e-9
-            idx = np.abs(np.asarray(timestamps) - img_timestamp).argmin()
-            closest_timestamp = timestamps[idx]
+            idx = np.abs(np.asarray(ts) - img_timestamp).argmin()
+            closest_timestamp = ts[idx]
             pose = poses_data[f'{closest_timestamp:.4f}']
+            timestamps.append(img_timestamp)
             poses.append(pose[:3])
             quats.append(pose[3:])
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        return poses, quats
+        return timestamps, poses, quats
 
     def read_all_poses_quats(self) -> list[np.ndarray]:
+        timestamps = []
         poses = []
         quats = []
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
+            timestamps.append(float(data[0]))
             poses.append([float(data[1]), float(data[2]), float(data[3])])
             quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[7])])   # x, y, z, w
 
+        timestamps = np.array(timestamps)
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        return poses, quats
+        return timestamps, poses, quats
