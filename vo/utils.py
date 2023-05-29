@@ -66,3 +66,18 @@ def form_transf(R, t):
     T[:3, 3] = t
     T[3, 3] = 1.0
     return T
+
+
+def save_pose_quat(
+    src: str,
+    timestamps: np.ndarray, poses: np.ndarray, quats: np.ndarray,
+    fmt: str = 'tum'
+):
+    if fmt == 'tum':
+        with open(src, 'w') as f:
+            for ts, p, q in zip(timestamps, poses, quats):
+                f.write(f"{ts:f} {p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {q[3]}\n")
+    elif fmt == 'kitti':
+        pass
+    else:
+        raise ValueError(f"Unknown format: {fmt}")
