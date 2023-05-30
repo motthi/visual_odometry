@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.08)
+    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.005)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -81,9 +81,8 @@ if __name__ == "__main__":
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
 
     vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
-    # save_trajectory(f"{save_dir}/traj.tum_f", None, estimated_poses, estimated_quats, 'tum')
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
-    save_pose_quat(f"{save_dir}/estimated_poses.txt", cap_timestamps, estimated_poses, estimated_quats)
+    save_trajectory(f"{save_dir}/estimated_trajectory.txt", cap_timestamps, estimated_poses, estimated_quats)
     np.savez(
         f"{save_dir}/vo_result_poses.npz",
         estimated_poses=estimated_poses, estimated_quats=estimated_quats,

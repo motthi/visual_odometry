@@ -34,7 +34,7 @@ class AkiDataset(ImageDataset):
         Returns:
             list[np.ndarray]: timestamps, poses, quaternions
         """
-        with open(f"{self.dataset_dir}/rover_camera_pose.csv") as f:
+        with open(f"{self.dataset_dir}/gt_camera_traj.csv") as f:
             lines = f.readlines()
         timestamps = []
         poses = []
@@ -59,7 +59,7 @@ class AkiDataset(ImageDataset):
         Returns:
             list[np.ndarray]: poses, quaternions
         """
-        with open(f"{self.dataset_dir}/tf_data.csv") as f:
+        with open(f"{self.dataset_dir}/gt_all_traj.csv") as f:
             lines = f.readlines()
         timestamps = []
         poses = []

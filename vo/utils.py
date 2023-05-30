@@ -68,7 +68,7 @@ def form_transf(R, t):
     return T
 
 
-def save_pose_quat(
+def save_trajectory(
     src: str,
     timestamps: np.ndarray, poses: np.ndarray, quats: np.ndarray,
     fmt: str = 'tum'
