@@ -29,20 +29,36 @@ class AkiDataset(ImageDataset):
         return lc_params, rc_params
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
+        """Load the poses and quaternions when the images were captured.
+
+        Returns:
+            list[np.ndarray]: timestamps, poses, quaternions
+        """
         with open(f"{self.dataset_dir}/rover_camera_pose.csv") as f:
             lines = f.readlines()
+        timestamps = []
         poses = []
         quats = []
         for line in lines:
-            data = line.split(",")
-            poses.append([float(data[0]), float(data[1]), float(data[2])])
-            quats.append([float(data[3]), float(data[4]), float(data[5]), float(data[6])])
+            data = line.split(" ")
+            timestamps.append(float(data[0]))
+            poses.append([float(data[1]), float(data[2]), float(data[3])])
+            quats.append([float(data[4]), float(data[5]), float(data[6]), float(data[7])])
+
+        assert len(timestamps) == len(poses) == len(quats), "The size of timestamps, poses, quats are not same."
+        # print(timestamps)
+        timestamps = np.array(timestamps)
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        poses, quats = self.pose_quat_slice(poses, quats, self.start, self.last, self.step)
-        return poses, quats
+        timestamps, poses, quats = self.pose_quat_slice(timestamps, poses, quats, self.start, self.last, self.step)
+        return timestamps, poses, quats
 
     def read_all_poses_quats(self) -> list[np.ndarray]:
+        """Load the all poses and quaternions
+
+        Returns:
+            list[np.ndarray]: poses, quaternions
+        """
         with open(f"{self.dataset_dir}/tf_data.csv") as f:
             lines = f.readlines()
         timestamps = []
@@ -51,13 +67,13 @@ class AkiDataset(ImageDataset):
         for line in lines:
             if "AKI" in line:
                 data = line.split(",")
-                timestamps.append(float(data[0]))
+                timestamps.append(float(data[2]) * 1e-9)
                 poses.append([float(data[5]), float(data[6]), float(data[7])])
                 quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[11])])
-        timestamps = np.array(timestamps, dtype=np.float32)
+        timestamps = np.array(timestamps)
         poses = np.array(poses, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        return poses, quats
+        return timestamps, poses, quats
 
 
 # heading = 0.0

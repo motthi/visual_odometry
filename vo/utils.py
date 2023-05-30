@@ -68,15 +68,19 @@ def form_transf(R, t):
     return T
 
 
-def save_trajectory(src:str, timestamps: np.ndarray, poses:np.ndarray, quats:np.ndarray, fmt:str='kitti'):
-    with open(src, 'w') as f:
-        if fmt == 'kitti':
-            for pose, quat in zip(poses, quats):
-                T = form_transf(R.from_quat(quat).as_matrix(), pose)
-                T = T.flatten()[:12]
-                f.write(f"{' '.join(map(str, T))}\n")
-        elif fmt == 'tum':
-            for timestamp, pose, quat in zip(timestamps, poses, quats):
-                f.write(f"{timestamp} {' '.join(map(str, pose))} {' '.join(map(str, quat))}\n")
-        else:
-            raise ValueError(f"Invalid format: {fmt}")
+def save_pose_quat(
+    src: str,
+    timestamps: np.ndarray, poses: np.ndarray, quats: np.ndarray,
+    fmt: str = 'tum'
+):
+    if fmt == 'tum':
+        with open(src, 'w') as f:
+            for ts, p, q in zip(timestamps, poses, quats):
+                f.write(f"{ts:f} {p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {q[3]}\n")
+    elif fmt == 'kitti':
+        for pose, quat in zip(poses, quats):
+            T = form_transf(R.from_quat(quat).as_matrix(), pose)
+            T = T.flatten()[:12]
+            f.write(f"{' '.join(map(str, T))}\n")
+    else:
+        raise ValueError(f"Unknown format: {fmt}")

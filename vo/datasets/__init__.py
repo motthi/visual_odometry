@@ -24,10 +24,11 @@ class ImageDataset():
             r_imgs.append(cv2.imread(rimg_src))
         return l_imgs, r_imgs
 
-    def pose_quat_slice(self, poses, quats, start, last, step):
+    def pose_quat_slice(self, timestamps, poses, quats, start, last, step):
+        timestamps = timestamps[start:last:step]
         poses = poses[start:last:step]
         quats = quats[start:last:step]
-        return poses, quats
+        return timestamps, poses, quats
 
     def camera_params(self):
         raise NotImplementedError
