@@ -22,35 +22,40 @@ class MadmaxDataset(ImageDataset):
             lcam_info = yaml.load(f, Loader=yaml.FullLoader)
         with open(f"{self.dataset_dir}/../calibration/camera_rect_right_info.txt") as f:
             rcam_info = yaml.load(f, Loader=yaml.FullLoader)
-        with open(f"{self.dataset_dir}/../calibration/tf__imu_to_camera_left.csv") as f:
-            tf_lcam2imu = f.readlines()
         with open(f"{self.dataset_dir}/../calibration/tf__imu_to_B.csv") as f:
             tf_imu2base = f.readlines()
+        with open(f"{self.dataset_dir}/../calibration/tf__imu_to_camera_left.csv") as f:
+            tf_imu2lcam = f.readlines()
         with open(f"{self.dataset_dir}/../calibration/tf__camera_left_to_camera_right.csv") as f:
             tf_lcam2rcam = f.readlines()
 
-        rot_imu2lcam = R.from_quat(list(map(float, tf_lcam2imu[1].strip().split(',')[3:]))).as_matrix().T
+        rot_imu2base = R.from_quat(list(map(float, tf_imu2base[1].strip().split(',')[3:]))).as_matrix()
+        rot_imu2lcam = R.from_quat(list(map(float, tf_imu2lcam[1].strip().split(',')[3:]))).as_matrix()
         rot_lcam2rcam = R.from_quat(list(map(float, tf_lcam2rcam[1].strip().split(',')[3:]))).as_matrix()
+        rot_base2lcam = rot_imu2lcam @ rot_imu2base.T
 
-        trans_imu2lcam = -np.array([list(map(float, tf_lcam2imu[1].strip().split(',')[:3]))])
         trans_imu2base = np.array([list(map(float, tf_imu2base[1].strip().split(',')[:3]))])
-        trans_base2lcam = trans_imu2lcam - trans_imu2base
+        trans_imu2lcam = np.array([list(map(float, tf_imu2lcam[1].strip().split(',')[:3]))])
         trans_lcam2rcam = np.array([list(map(float, tf_lcam2rcam[1].strip().split(',')[:3]))])
+        trans_base2lcam = trans_imu2lcam - trans_imu2base
 
-        T_B2lcam = np.eye(4)
-        T_B2lcam[:3, :3] = rot_imu2lcam
-        T_B2lcam[:3, 3] = trans_base2lcam
+        T_base2lcam = np.eye(4)
+        T_base2lcam[:3, :3] = rot_base2lcam
+        T_base2lcam[:3, 3] = trans_base2lcam
 
         T_lcam2rcam = np.eye(4)
         T_lcam2rcam[:3, :3] = rot_lcam2rcam
         T_lcam2rcam[:3, 3] = trans_lcam2rcam
 
+        T_base2rcam = T_base2lcam @ T_lcam2rcam
+
+        T_base2lcam = np.linalg.inv(T_base2lcam)
+        T_base2rcam = np.linalg.inv(T_base2rcam)
+        
         K_l = np.array(lcam_info['P']).reshape(3, 4)[:3, :3]
         K_r = np.array(rcam_info['P']).reshape(3, 4)[:3, :3]
-        # K_l = np.array(lcam_info['K']).reshape(3, 3)
-        # K_r = np.array(rcam_info['K']).reshape(3, 3)
-        E_l = T_B2lcam[:3, :]
-        E_r = (T_lcam2rcam @ T_B2lcam)[:3, :]
+        E_l = T_base2lcam[:3, :]
+        E_r = T_base2rcam[:3, :]
 
         P_l = K_l @ E_l
         P_r = K_r @ E_r

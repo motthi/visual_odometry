@@ -222,3 +222,21 @@ def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0,
     ax.quiver(trans[0], trans[1], trans[2], xe[0], xe[1], xe[2], color='r')
     ax.quiver(trans[0], trans[1], trans[2], ye[0], ye[1], ye[2], color='g')
     ax.quiver(trans[0], trans[1], trans[2], ze[0], ze[1], ze[2], color='b')
+
+
+def draw_system_reference_frames(frames:list[np.ndarray], frame_names:list[str] = None, scale=1.0):
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10), subplot_kw={'projection': '3d'})
+    ax.set_xlabel("X [m]")
+    ax.set_ylabel("Y [m]")
+    ax.set_zlabel("Z [m]")
+    ax.set_title("System reference frames")
+    set_lims(ax, xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1))
+
+    draw_coordinate(ax, np.eye(3), np.array([[0, 0, 0]]).T, scale=scale)
+    ax.text(0, 0, 0, "O", size=10, zorder=1, color='k')
+
+    for frame, name in zip(frames, frame_names):
+        draw_coordinate(ax, frame[:3, :3], frame[:3, 3:], scale=scale)
+        ax.text(frame[0, 3], frame[1, 3], frame[2, 3], name, size=10, zorder=1, color='k')
+
+    plt.show()
