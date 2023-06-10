@@ -33,14 +33,13 @@ class VisualOdometry():
         self.img_mask = img_mask
         self.cnt = 0
 
+        self.left_kpts = []
+        self.left_descs = []
+
         l_img = imgs[0]
-        l_kpts = self.detector.detect(l_img, self.img_mask)
-        l_kpts, l_descs = self.descriptor.compute(l_img, l_kpts)
-        l_descs = np.array(l_descs, dtype=np.uint8)
+        _, _ = self.detect_kpts(l_img)
 
         self.Ts = [None]
-        self.left_kpts = [l_kpts]
-        self.left_descs = [l_descs]
         self.matches = [None]
         self.matched_prev_kpts = [None]
         self.matched_curr_kpts = [None]

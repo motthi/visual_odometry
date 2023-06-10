@@ -1,5 +1,6 @@
 import cv2
 import os
+import numbers
 from tqdm import tqdm
 
 
@@ -8,7 +9,7 @@ class ImageDataset():
         if not os.path.exists(dataset_dir):
             raise FileNotFoundError(f"Dataset directory {dataset_dir} does not exist.")
         self.dataset_dir = dataset_dir
-        if last is not None and start > last:
+        if last is not None and isinstance(last, numbers.Integral) and start > last:
             raise ValueError(f'The start index must be larger than the last index, start: {start}, last: {last}')
         self.start = start
         self.last = last

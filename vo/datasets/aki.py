@@ -1,5 +1,6 @@
 import glob
 import json
+import numbers
 import numpy as np
 from vo.datasets import ImageDataset
 
@@ -9,7 +10,7 @@ class AkiDataset(ImageDataset):
         super().__init__(dataset_dir, start, last, step)
         self.l_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/left/*.png"))
         self.r_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/right/*.png"))
-        if last is None:
+        if last is None or not isinstance(last, numbers.Integral):
             last = len(self.l_img_srcs)
             self.last = len(self.l_img_srcs)
         self.l_img_srcs = self.l_img_srcs[start:last:step]
