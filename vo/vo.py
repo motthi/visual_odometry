@@ -379,6 +379,9 @@ class StereoVisualOdometry(VisualOdometry):
         disps = []
         for pt in pts:
             pt_int = (int(pt[0]), int(pt[1]))
+            if pt_int[0] < WIN_SIZE or pt_int[0] > limg.shape[1] - WIN_SIZE or pt_int[1] < WIN_SIZE or pt_int[1] > limg.shape[0] - WIN_SIZE:
+                disps.append(float('inf'))
+                continue
             temp_img = limg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, pt_int[0] - WIN_SIZE:pt_int[0] + WIN_SIZE]
             ref_img = rimg[pt_int[1] - WIN_SIZE:pt_int[1] + WIN_SIZE, :pt_int[0]]
             result = cv2.matchTemplate(ref_img, temp_img, cv2.TM_SQDIFF)
