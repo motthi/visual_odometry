@@ -15,19 +15,20 @@ DATASET_DIR = os.environ['DATASET_DIR']
 if __name__ == "__main__":
     # Specify the range of images to use
     start = 0
-    # start = 500
     last = None
-    # last = 3000
     step = 3
+    start = 500
+    last = 2000
+    step = 14
 
     # Load datasets
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230227_2"
+    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
     dataset = AkiDataset(data_dir, start=start, last=last, step=step)
 
     # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
 
-    save_dir = f"{data_dir}/vo_result"
+    save_dir = f"{data_dir}/vo_results/normal"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -36,6 +37,10 @@ if __name__ == "__main__":
     _, all_poses, all_quats = dataset.read_all_poses_quats()
     cap_timestamps, cap_poses, cap_quats = dataset.read_captured_poses_quats()
     num_img = len(l_imgs)
+
+    print(f"Dataset directory\t: {data_dir}")
+    print(f"Save directory\t\t: {save_dir}")
+    print(f"Number of images\t: {num_img}")
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
