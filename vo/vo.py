@@ -110,15 +110,15 @@ class VisualOdometry():
         masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
         # for i in range(min(50, len(matches))):
-        for i in range(len(matches)):
+        for cnt in range(len(matches)):
             # TODO: Temporal solution for mismatched keypoints
-            pkpt = prev_kpts[matches[i].queryIdx]
-            ckpt = curr_kpts[matches[i].trainIdx]
+            pkpt = prev_kpts[matches[cnt].queryIdx]
+            ckpt = curr_kpts[matches[cnt].trainIdx]
             if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > 50:
                 continue
-            masked_prev_kpts.append(prev_kpts[matches[i].queryIdx])
-            masked_curr_kpts.append(curr_kpts[matches[i].trainIdx])
-            masked_dmatches.append(cv2.DMatch(i, i, matches[i].imgIdx, matches[i].distance))
+            masked_prev_kpts.append(prev_kpts[matches[cnt].queryIdx])
+            masked_curr_kpts.append(curr_kpts[matches[cnt].trainIdx])
+            masked_dmatches.append(cv2.DMatch(cnt, cnt, matches[cnt].imgIdx, matches[cnt].distance))
         return np.array(masked_prev_kpts), np.array(masked_curr_kpts), np.array(masked_dmatches)
 
     def load_img(self, i: int) -> np.ndarray:
