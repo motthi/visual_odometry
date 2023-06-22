@@ -13,9 +13,9 @@ from tqdm import tqdm
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230227_2"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    save_dir = f"{data_dir}/vo_result"
+    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    save_dir = f"{data_dir}/vo_results/normal"
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
@@ -26,7 +26,7 @@ if __name__ == "__main__":
     start = result_data["start_idx"]
     last = result_data["last_idx"]
     dataset = AkiDataset(data_dir, start=start, last=last, step=step)
-    dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
     create_save_directories(save_dir)
 
     print("Start exporting results...")

@@ -106,25 +106,6 @@ class VisualOdometry():
         self.left_descs.append(descs)
         return kpts, descs
 
-    def track_kpts(self, i: int, curr_kpts: np.ndarray, curr_descs: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
-        prev_kpts = self.left_kpts[i]
-        prev_descs = self.left_descs[i]
-        matches = self.tracker.match(prev_descs, curr_descs)
-
-        masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
-        matches = sorted(matches, key=lambda x: x.distance)
-        # for i in range(min(50, len(matches))):
-        for cnt in range(len(matches)):
-            # TODO: Temporal solution for mismatched keypoints
-            pkpt = prev_kpts[matches[cnt].queryIdx]
-            ckpt = curr_kpts[matches[cnt].trainIdx]
-            if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > 50:
-                continue
-            masked_prev_kpts.append(prev_kpts[matches[cnt].queryIdx])
-            masked_curr_kpts.append(curr_kpts[matches[cnt].trainIdx])
-            masked_dmatches.append(cv2.DMatch(cnt, cnt, matches[cnt].imgIdx, matches[cnt].distance))
-        return np.array(masked_prev_kpts), np.array(masked_curr_kpts), np.array(masked_dmatches)
-
     def load_img(self, i: int) -> np.ndarray:
         return self.left_imgs[i]
 
@@ -238,7 +219,7 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        detector, descriptor, tracker, estimator: StereoVoEstimator, img_mask=None,
+        detector, descriptor, tracker: KeyPointTracker, estimator: StereoVoEstimator, img_mask=None,
         num_disp: int = 50,
         method: str = "svd", use_disp: bool = False
     ) -> None:
