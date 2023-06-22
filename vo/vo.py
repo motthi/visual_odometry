@@ -112,25 +112,25 @@ class VisualOdometry():
 
 class MonocularVisualOdometry(VisualOdometry):
     def __init__(
-            self,
-            left_camera_params, left_imgs,
-            detector, descriptor, tracker, estimator,
-            img_mask=None
+        self,
+        left_camera_params, left_imgs,
+        detector, descriptor, tracker, estimator,
+        img_mask=None
     ) -> None:
         super().__init__(left_camera_params, left_imgs, detector, descriptor, tracker, estimator, img_mask)
 
     def estimate_pose(self):
         # Load images
+        left_prev_img = self.load_img(self.cnt)
         left_curr_img = self.load_img(self.cnt + 1)
 
         # Detect and track keypoints
-        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
-
+        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
 
-        transf = self.estimate(prev_kpts, curr_kpts)
+        transf = self.estimator.estimate(prev_kpts, curr_kpts)
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
         return transf
 

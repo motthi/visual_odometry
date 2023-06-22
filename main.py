@@ -63,6 +63,7 @@ if __name__ == "__main__":
     # tracker = OpticalFlowTracker()
 
     # Estimator
+    # estimator = MonocularVoEstimator(lcam_params['intrinsic'])
     # estimator = LmBasedEstimator(lcam_params['projection'])
     # estimator = SvdBasedEstimator(lcam_params['projection'])
     estimator = RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05)
@@ -81,7 +82,7 @@ if __name__ == "__main__":
     trans = np.array([cap_poses[0]])
     init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
 
-    # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor, img_mask=img_mask)
+    # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor, tracker, estimator, img_mask=img_mask)
     vo = StereoVisualOdometry(
         lcam_params, rcam_params,
         l_imgs, r_imgs,
