@@ -1,4 +1,3 @@
-from __future__ import annotations
 import cv2
 import os
 import shutil
@@ -9,6 +8,7 @@ from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 from vo.method.monocular import *
 from vo.method.stereo import *
+from vo.tracker import KeyPointTracker
 
 # https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
 
@@ -19,7 +19,7 @@ class VisualOdometry():
     def __init__(
         self,
         camera_params, imgs,
-        detector, descriptor, matcher, estimator: VoEstimator,
+        detector, descriptor, tracker: KeyPointTracker, estimator: VoEstimator,
         img_mask
     ) -> None:
         self.E_l = camera_params['extrinsic']
@@ -27,7 +27,7 @@ class VisualOdometry():
         self.K_l = camera_params['intrinsic']
         self.detector = detector
         self.descriptor = descriptor
-        self.matcher = matcher
+        self.tracker = tracker
         self.estimator = estimator
         self.left_imgs = imgs
         self.img_mask = img_mask
@@ -76,7 +76,7 @@ class VisualOdometry():
     def estimate_pose(self):
         raise NotImplementedError
 
-    def detect_track_kpts(self, i: int, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
+    def detect_track_kpts(self, i: int, prev_img: np.ndarray, curr_img: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
         """Detect feature points and track from previous image to current image
 
         Args:
@@ -87,8 +87,12 @@ class VisualOdometry():
             list[list, list, list]: [Keypoints in previous image, Keypoints in current image, DMatches]
         """
         curr_kpts, curr_descs = self.detect_kpts(curr_img)
-        tp1, tp2, dmatches = self.track_kpts(i, curr_kpts, curr_descs)
-        return tp1, tp2, dmatches
+        ptp, ctp, dmatches = self.tracker.track(
+            prev_img=prev_img, curr_img=curr_img,
+            prev_kpts=self.left_kpts[i], prev_descs=self.left_descs[i],
+            curr_kpts=curr_kpts, curr_descs=curr_descs
+        )
+        return ptp, ctp, dmatches
 
     def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
         kpts = self.detector.detect(img, self.img_mask)
@@ -105,7 +109,7 @@ class VisualOdometry():
     def track_kpts(self, i: int, curr_kpts: np.ndarray, curr_descs: np.ndarray) -> list[np.ndarray, np.ndarray, np.ndarray]:
         prev_kpts = self.left_kpts[i]
         prev_descs = self.left_descs[i]
-        matches = self.matcher.match(prev_descs, curr_descs)
+        matches = self.tracker.match(prev_descs, curr_descs)
 
         masked_prev_kpts, masked_curr_kpts, masked_dmatches = [], [], []
         matches = sorted(matches, key=lambda x: x.distance)
@@ -129,10 +133,10 @@ class MonocularVisualOdometry(VisualOdometry):
     def __init__(
             self,
             left_camera_params, left_imgs,
-            detector, descriptor, matcher, estimator,
+            detector, descriptor, tracker, estimator,
             img_mask=None
     ) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, estimator, img_mask)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, tracker, estimator, img_mask)
 
     def estimate_pose(self):
         # Load images
@@ -234,11 +238,11 @@ class StereoVisualOdometry(VisualOdometry):
     def __init__(
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
-        detector, descriptor, matcher, estimator: StereoVoEstimator, img_mask=None,
+        detector, descriptor, tracker, estimator: StereoVoEstimator, img_mask=None,
         num_disp: int = 50,
         method: str = "svd", use_disp: bool = False
     ) -> None:
-        super().__init__(left_camera_params, left_imgs, detector, descriptor, matcher, estimator, img_mask)
+        super().__init__(left_camera_params, left_imgs, detector, descriptor, tracker, estimator, img_mask)
         self.right_imgs = right_imgs
         self.method = method
         self.use_disp = use_disp
@@ -258,6 +262,7 @@ class StereoVisualOdometry(VisualOdometry):
 
     def estimate_pose(self):
         # Load images
+        left_prev_img, _ = self.load_img(self.cnt)
         left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
 
         # Calculate disparity
@@ -267,7 +272,7 @@ class StereoVisualOdometry(VisualOdometry):
             self.disparities.append(None)
 
         # Detect and track keypoints
-        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_curr_img)
+        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None

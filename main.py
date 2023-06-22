@@ -5,6 +5,7 @@ from scipy.spatial.transform import Rotation as R
 from vo.vo import *
 from vo.draw import draw_vo_poses
 from vo.detector import *
+from vo.tracker import *
 from vo.utils import *
 from vo.method.stereo import *
 from vo.datasets.aki import *
@@ -17,9 +18,9 @@ if __name__ == "__main__":
     start = 0
     last = None
     step = 3
-    start = 500
-    last = 2000
-    step = 14
+    # start = 500
+    # last = 2000
+    # step = 14
 
     # Load datasets
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
@@ -55,6 +56,16 @@ if __name__ == "__main__":
     # descriptor = cv2.SIFT_create()
     # descriptor = cv2.xfeatures2d.SURF_create()
 
+    # Tracker
+    # tracker = BruteForceTracker(cv2.NORM_HAMMING, cross_check=True)
+    tracker = FlannTracker()
+    # tracker = OpticalFlowTracker()
+
+    # Estimator
+    # estimator = LmBasedEstimator(lcam_params['projection'])
+    # estimator = SvdBasedEstimator(lcam_params['projection'])
+    estimator = RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05)
+
     # Image masking
     img_mask = None
     D = 50
@@ -73,14 +84,10 @@ if __name__ == "__main__":
     vo = StereoVisualOdometry(
         lcam_params, rcam_params,
         l_imgs, r_imgs,
-        detector, descriptor,
-        # estimator=LmBasedEstimator(lcam_params['projection']),
-        # estimator=SvdBasedEstimator(lcam_params['projection']),
-        estimator=RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05),
-        matcher=cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True),
+        detector, descriptor, tracker=tracker,
+        estimator=estimator,
         img_mask=img_mask,
-        # use_disp=True,
-        num_disp=100,
+        num_disp=100,  # use_disp=True
     )
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
