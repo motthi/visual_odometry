@@ -251,8 +251,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             inlier_prev_3d_pts = prev_3d_pts[:, inlier_idx]
             inlier_curr_3d_pts = curr_3d_pts[:, inlier_idx]
             inlier_T = self.svd_based_estimate(inlier_prev_3d_pts, inlier_curr_3d_pts)
-            # if np.fabs(inlier_T[1, 3]) > 0.05:
-            #     continue
+            if np.fabs(inlier_T[1, 3]) > 0.05:
+                continue
 
             res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], inlier_prev_3d_pts, inlier_curr_3d_pts)
             res = res.reshape((len(inlier_idx) * 2, -1))
