@@ -49,6 +49,7 @@ if __name__ == "__main__":
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
+    # detector = BucketingDetector(8, 10, detector, cv2.ORB_create())
 
     # Feature descriptor
     descriptor = cv2.ORB_create()
@@ -57,8 +58,8 @@ if __name__ == "__main__":
     # descriptor = cv2.xfeatures2d.SURF_create()
 
     # Tracker
-    # tracker = BruteForceTracker(cv2.NORM_HAMMING, cross_check=True)
-    tracker = FlannTracker()
+    tracker = BruteForceTracker(cv2.NORM_HAMMING, cross_check=True)
+    # tracker = FlannTracker()
     # tracker = OpticalFlowTracker()
 
     # Estimator
@@ -71,7 +72,7 @@ if __name__ == "__main__":
     D = 50
     img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
     img_mask[: D, :] = 0
-    img_mask[-100:, :] = 0
+    img_mask[-80:, :] = 0
     img_mask[:, : D] = 0
     img_mask[:, -D:] = 0
 
