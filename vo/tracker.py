@@ -94,6 +94,9 @@ class OpticalFlowTracker(KeyPointTracker):
         curr_img: np.ndarray = kwargs['curr_img']
         curr_kpts: np.ndarray = kwargs['curr_kpts']
 
+        if len(curr_kpts) == 0:
+            return [], [], []
+
         curr_track_pts = np.expand_dims(cv2.KeyPoint_convert(curr_kpts), axis=1)
         prev_track_pts, st, err = cv2.calcOpticalFlowPyrLK(curr_img, prev_img, curr_track_pts, None, **self.lk_params)
         prev_track_pts = np.around(prev_track_pts)
