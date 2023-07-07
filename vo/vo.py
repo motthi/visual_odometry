@@ -43,14 +43,15 @@ class VisualOdometry():
         self.matches = [None]
         self.matched_prev_kpts = [None]
         self.matched_curr_kpts = [None]
-        self.process_times = [None]
+        self.overall_proc_times = [None]
 
     def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
         print(f"\nStart localization")
         warnings.simplefilter("ignore")
 
         poses = [init_pose]
-        self.process_times = [None]
+        self.overall_proc_times = [None]
+        self.each_proc_times = [None]
         cur_pose = init_pose
 
         pbar = tqdm(range(1, last_img_idx))
@@ -61,7 +62,7 @@ class VisualOdometry():
                 cur_pose = cur_pose @ transf
 
             ptime = time.time() - s_time
-            self.process_times.append(ptime)
+            self.overall_proc_times.append(ptime)
             self.Ts.append(transf)
             poses.append(cur_pose)
             self.cnt += 1
@@ -101,6 +102,7 @@ class VisualOdometry():
             self.left_kpts.append(kpts)
             self.left_descs.append(descs)
             return [], []
+        kpts = np.array(kpts)
         descs = np.array(descs, dtype=np.uint8)
         self.left_kpts.append(kpts)
         self.left_descs.append(descs)
@@ -205,7 +207,7 @@ class MonocularVisualOdometry(VisualOdometry):
             kpts = self.left_kpts[i]
             np.savez(
                 f"{base_dir}/{img_idx:04d}.npz",
-                process_time=self.process_times[i],
+                process_time=self.overall_proc_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 translation=self.Ts[i],
@@ -253,12 +255,15 @@ class StereoVisualOdometry(VisualOdometry):
             self.disparities.append(None)
 
         # Detect and track keypoints
+        s_time = time.time()
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             return None
+        kpt_proc_time = time.time() - s_time
 
         # Find the corresponding points in the right image
+        s_time = time.time()
         prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
@@ -266,10 +271,16 @@ class StereoVisualOdometry(VisualOdometry):
 
         # Calculate essential matrix and the correct pose
         prev_3d_pts, curr_3d_pts = self.calc_3d(l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts)
+        stereo_proc_time = time.time() - s_time
 
+        # Estimate pose
+        s_time = time.time()
         transf = self.estimator.estimate(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
+        estimate_proc_time = time.time() - s_time
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+
+        self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
         return transf
 
     def find_right_kpts(
@@ -430,7 +441,8 @@ class StereoVisualOdometry(VisualOdometry):
             kpts = self.left_kpts[i]
             np.savez(
                 f"{base_dir}/{img_idx:04d}.npz",
-                process_times=self.process_times[i],
+                process_times=self.overall_proc_times[i],
+                each_process_times=self.each_proc_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
                 disp=self.disparities[i],
