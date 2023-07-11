@@ -23,8 +23,16 @@ class AkiDataset(ImageDataset):
         K_r = np.array(data["right"]["intrinsic"]).reshape(3, 3)
         E_l = np.array(data["left"]["extrinsic"]).reshape(3, 4)
         E_r = np.array(data["right"]["extrinsic"]).reshape(3, 4)
-        P_l = np.array(data["left"]["projection"]).reshape(3, 4)
-        P_r = np.array(data["right"]["projection"]).reshape(3, 4)
+        # P_l = np.array(data["left"]["projection"]).reshape(3, 4)
+        # P_r = np.array(data["right"]["projection"]).reshape(3, 4)
+        # print(f"K_l:\n{K_l}")
+        # print(f"K_r:\n{K_r}")
+        # print(f"E_l:\n{E_l}")
+        # print(f"E_r:\n{E_r}")
+        # print(f"P_l:\n{K_l @ E_l}")
+        # print(f"P_r:\n{K_r @ E_r}")
+        P_l = K_l @ E_l
+        P_r = K_r @ E_r
         lc_params = {'intrinsic': K_l, 'extrinsic': E_l, 'projection': P_l}
         rc_params = {'intrinsic': K_r, 'extrinsic': E_r, 'projection': P_r}
         return lc_params, rc_params

@@ -8,9 +8,9 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 
 if __name__ == "__main__":
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230227_2"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    save_dir = f"{data_dir}/vo_result"
+    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    save_dir = f"{data_dir}/vo_results/normal"
     estimated_poses, estimated_quats, real_poses, real_quats, real_img_poses, real_img_quats = load_result_poses(f"{save_dir}/vo_result_poses.npz")
     draw_vo_poses(
         estimated_poses, real_poses, real_img_poses,

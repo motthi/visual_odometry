@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=9, thd=0.005)
+    detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.005)
     # detector = ShiTomashiCornerDetector()
     # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -89,7 +89,7 @@ if __name__ == "__main__":
         detector, descriptor, tracker=tracker,
         estimator=estimator,
         img_mask=img_mask,
-        num_disp=100,  # use_disp=True
+        # num_disp=100,  use_disp=True
     )
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
