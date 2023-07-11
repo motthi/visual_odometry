@@ -25,13 +25,15 @@ if __name__ == "__main__":
     step = result_data["step"]
     start = result_data["start_idx"]
     last = result_data["last_idx"]
+
     dataset = AkiDataset(data_dir, start=start, last=last, step=step)
     # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
-    create_save_directories(save_dir)
-
+    
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
     print(f"Save directory: {save_dir}")
+    
+    create_save_directories(save_dir)
     for i, idx in enumerate(tqdm(range(start, last - step, step))):
         img = cv2.imread(dataset.l_img_srcs[i])
         data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
