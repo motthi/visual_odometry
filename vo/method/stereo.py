@@ -1,5 +1,7 @@
 import cv2
+import warnings
 import numpy as np
+from liegroups import SE3
 from scipy.optimize import least_squares
 from vo.utils import form_transf
 from vo.method import VoEstimator
@@ -46,10 +48,6 @@ class StereoVoEstimator(VoEstimator):
         prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
         transf_inv = np.linalg.inv(transf)
-        # f_reprojection = prev_pts.T @ transf
-        # b_reprojection = curr_pts.T @ transf_inv
-        # e1 = curr_pts - f_reprojection.T
-        # e2 = prev_pts - b_reprojection.T
         f_reprojection = transf @ prev_pts
         b_reprojection = transf_inv @ curr_pts
         e1 = curr_pts - f_reprojection
@@ -59,11 +57,20 @@ class StereoVoEstimator(VoEstimator):
 
 
 class LmBasedEstimator(StereoVoEstimator):
-    def __init__(self, P_l, max_iter=100):
+    def __init__(self, P_l, max_iter=100, manifold='rpy'):
         super().__init__(P_l)
         self.max_iter = max_iter
         self.iter_cnts = []
         self.min_erros = []
+        self.manifold = manifold
+        if manifold == 'rpy':
+            self.optimize_function = self.rpy_optimize_cost
+        elif manifold == 'se3':
+            self.optimize_function = self.se3_optimize_cost
+        else:
+            warnings.warn('Invalid manifold type. Using rpy as default')
+            self.optimize_function = self.rpy_optimize_cost
+            self.manifold = 'rpy'
 
     def estimate(
         self,
@@ -77,22 +84,22 @@ class LmBasedEstimator(StereoVoEstimator):
         min_error = float('inf')
         early_termination = 0
         early_termination_thd = 10
+
+        xi_init = np.zeros(6)
         for cnt in range(self.max_iter):
             sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
-
-            sample_q1 = prev_pixes[sample_idx]
-            sample_q2 = curr_pixes[sample_idx]
-            sample_Q1 = prev_3d_pts[sample_idx]
-            sample_Q2 = curr_3d_pts[sample_idx]
+            sample_prev_pixes = prev_pixes[sample_idx]
+            sample_curr_pixes = curr_pixes[sample_idx]
+            sample_prev_pts = prev_3d_pts[sample_idx]
+            sample_curr_pts = curr_3d_pts[sample_idx]
 
             # Perform least squares optimization
-            in_guess = np.zeros(6)  # Make the start guess
             opt_res = least_squares(
                 self.optimize_function,                             # Function to minimize
-                in_guess,                                           # Initial guess
+                xi_init,                                           # Initial guess
                 method='lm',                                        # Levenberg-Marquardt algorithm
                 max_nfev=200,                                       # Max number of function evaluations
-                args=(sample_q1, sample_q2, sample_Q1, sample_Q2)   # Additional arguments to pass to the function
+                args=(sample_prev_pixes, sample_curr_pixes, sample_prev_pts, sample_curr_pts)   # Additional arguments to pass to the function
             )
 
             # Calculate the error for the optimized transformation
@@ -104,6 +111,7 @@ class LmBasedEstimator(StereoVoEstimator):
             if err < min_error:
                 min_error = err
                 out_pose = opt_res.x
+                xi_init = out_pose
                 early_termination = 0
             else:
                 early_termination += 1
@@ -112,29 +120,60 @@ class LmBasedEstimator(StereoVoEstimator):
                 break
         self.iter_cnts.append(cnt)
         self.min_erros.append(min_error)
-        r = out_pose[:3]             # Get the rotation vector
-        R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
-        t = -out_pose[3:]            # Get the translation vector
+
+        if self.manifold == 'rpy':
+            r = out_pose[:3]             # Get the rotation vector
+            R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
+            t = -out_pose[3:]            # Get the translation vector
+        elif self.manifold == 'se3':
+            t_SE3 = SE3.exp(out_pose)
+            R = t_SE3.rot.mat
+            t = -t_SE3.trans
         T = form_transf(R, t)
         return T
 
-    def optimize_function(
-            self,
-            dof: np.ndarray,
-            p_pixes: np.ndarray, c_pixes: np.ndarray,
-            p3d_pts: np.ndarray, c3d_pts: np.ndarray
+    def se3_optimize_cost(
+        self,
+        v: np.ndarray,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
     ) -> np.ndarray:
-        """Optimize function: Calculates the reprojection residuals from the rotation and translation vector
+        """Optimization cost function for SE3 manifold
+
+        Args:
+            v (np.ndarray): Tangent vector
+            prev_pixes (np.ndarray): Pixes in the previous frame
+            curr_pixes (np.ndarray): Pixes in the current frame
+            prev_3d_pts (np.ndarray): Corresponding 3D points in the previous frame
+            curr_3d_pts (np.ndarray): Corresponding 3D points in the current frame
+
+        Returns:
+            np.ndarray: Loss vector
+        """
+        t_SE3 = SE3.exp(v)
+        transf = form_transf(t_SE3.rot.mat, t_SE3.trans)
+        ones = np.ones((prev_pixes.shape[0], 1))
+        prev_3d_pts = np.hstack([prev_3d_pts, ones]).T
+        curr_3d_pts = np.hstack([curr_3d_pts, ones]).T
+        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+
+    def rpy_optimize_cost(
+        self,
+        dof: np.ndarray,
+        p_pixes: np.ndarray, c_pixes: np.ndarray,
+        p3d_pts: np.ndarray, c3d_pts: np.ndarray
+    ) -> np.ndarray:
+        """Optimization cost function for RPY manifold
 
         Args:
             dof (np.ndarray): Rotation vector and translation vector
-            prev_pixes (np.ndarray): Pixel points in image 1
-            curr_pixes (np.ndarray): Pixel points in image 2
-            prev_3d_pts (np.ndarray): 3D points in image 1
-            curr_3d_pts (np.ndarray): 3D points in image 2
+            p_pixes (np.ndarray): Pixes in the previous frame
+            c_pixes (np.ndarray): Pixes in the current frame
+            p3d_pts (np.ndarray): Corresponding 3D points in the previous frame
+            c3d_pts (np.ndarray): Corresponding 3D points in the current frame
 
         Returns:
-            np.ndarray: Reprojection residuals (Flattened)
+            np.ndarray: Loss vector
         """
         r = dof[:3]                   # Get the rotation vector
         R, _ = cv2.Rodrigues(r)       # Create the rotation matrix from the rotation vector
@@ -144,12 +183,11 @@ class LmBasedEstimator(StereoVoEstimator):
         p3d_pts = np.hstack([p3d_pts, ones]).T
         c3d_pts = np.hstack([c3d_pts, ones]).T
         return self.image_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
-        # return self.point_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
 
     def save_results(self, src: str):
         self.iter_cnts = np.array(self.iter_cnts)
         self.min_erros = np.array(self.min_erros)
-        np.savez(src, iter_cnts=self.iter_cnts, min_erros=self.min_erros)
+        np.savez(src, manifold=self.manifold, iter_cnts=self.iter_cnts, min_erros=self.min_erros)
 
 
 class SvdBasedEstimator(StereoVoEstimator):
