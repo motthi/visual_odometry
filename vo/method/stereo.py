@@ -124,11 +124,11 @@ class LmBasedEstimator(StereoVoEstimator):
         if self.manifold == 'rpy':
             r = out_pose[:3]             # Get the rotation vector
             R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
-            t = -out_pose[3:]            # Get the translation vector
+            t = -out_pose[3:]            # Get the translation vector # FIXME Not minus
         elif self.manifold == 'se3':
             t_SE3 = SE3.exp(out_pose)
             R = t_SE3.rot.mat
-            t = -t_SE3.trans
+            t = -t_SE3.trans  # FIXME Not minus
         T = form_transf(R, t)
         return T
 

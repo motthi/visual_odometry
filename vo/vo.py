@@ -244,6 +244,10 @@ class StereoVisualOdometry(VisualOdometry):
             self.disparities = [None]
 
     def estimate_pose(self):
+        kpt_proc_time = 0.0
+        stereo_proc_time = 0.0
+        estimate_proc_time = 0.0
+
         # Load images
         left_prev_img, _ = self.load_img(self.cnt)
         left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
@@ -259,6 +263,7 @@ class StereoVisualOdometry(VisualOdometry):
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+            self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
             return None
         kpt_proc_time = time.time() - s_time
 
@@ -267,6 +272,7 @@ class StereoVisualOdometry(VisualOdometry):
         prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
+            self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
             return None
 
         # Calculate essential matrix and the correct pose
