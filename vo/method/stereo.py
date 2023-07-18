@@ -124,11 +124,11 @@ class LmBasedEstimator(StereoVoEstimator):
         if self.manifold == 'rpy':
             r = out_pose[:3]             # Get the rotation vector
             R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
-            t = -out_pose[3:]            # Get the translation vector # FIXME Not minus
+            t = out_pose[3:]            # Get the translation vector # FIXME Not minus
         elif self.manifold == 'se3':
             t_SE3 = SE3.exp(out_pose)
             R = t_SE3.rot.mat
-            t = -t_SE3.trans  # FIXME Not minus
+            t = t_SE3.trans  # FIXME Not minus
         T = form_transf(R, t)
         return T
 
@@ -276,8 +276,6 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             # Error estimation
             res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
             res = res.reshape((prev_3d_pts.shape[1] * 2, -1))
-            # error_pred_flag = np.linalg.norm(res[:prev_3d_pts.shape[1], :], axis=1) < self.inlier_thd  # Reprojection error against i to i-1
-            # error_curr_flag = np.linalg.norm(res[prev_3d_pts.shape[1]:, :], axis=1) < self.inlier_thd  # Reprojection error against i-1 to i
             error_pred_flag = np.all(res[:prev_3d_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_3d_pts.shape[1]:, :] < self.inlier_thd, axis=1)
 
@@ -303,9 +301,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         self.iter_cnts.append(cnt)
         self.min_errors.append(min_error)
 
-        # FIXME: This is a hack to cope with the reflection
+        # Inversion is needed because T will be multiplied from the right
         if T is not None:
-            T[:3, 3] = -T[:3, 3]
             T = np.linalg.inv(T)
 
         return T

@@ -224,12 +224,13 @@ def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0,
     ax.quiver(trans[0], trans[1], trans[2], ze[0], ze[1], ze[2], color='b')
 
 
-def draw_system_reference_frames(frames:list[np.ndarray], frame_names:list[str] = None, scale=1.0):
+def draw_system_reference_frames(frames:list[np.ndarray], frame_names:list[str] = None, scale=1.0, view=None):
     fig, ax = plt.subplots(1, 1, figsize=(10, 10), subplot_kw={'projection': '3d'})
     ax.set_xlabel("X [m]")
     ax.set_ylabel("Y [m]")
     ax.set_zlabel("Z [m]")
     ax.set_title("System reference frames")
+    ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     set_lims(ax, xlim=(-1, 1), ylim=(-1, 1), zlim=(-1, 1))
 
     draw_coordinate(ax, np.eye(3), np.array([[0, 0, 0]]).T, scale=scale)
