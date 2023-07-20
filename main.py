@@ -18,16 +18,16 @@ if __name__ == "__main__":
     start = 0
     last = None
     step = 3
-    # start = 500
-    # last = 2000
-    # step = 14
+    start = 600
+    last = 800
+    step = 3
 
     # Load datasets
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+    # data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+    # dataset = AkiDataset(data_dir, start=start, last=last, step=step)
 
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
 
     save_dir = f"{data_dir}/vo_results/normal"
     if not os.path.exists(save_dir):
@@ -45,9 +45,9 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.005)
+    # detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.08)
     # detector = ShiTomashiCornerDetector()
-    # detector = cv2.ORB_create()
+    detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
     # detector = BucketingDetector(8, 10, detector, cv2.ORB_create())
 
@@ -64,18 +64,18 @@ if __name__ == "__main__":
 
     # Estimator
     # estimator = MonocularVoEstimator(lcam_params['intrinsic'])
-    # estimator = LmBasedEstimator(lcam_params['projection'])
+    estimator = LmBasedEstimator(lcam_params['projection'])
     # estimator = SvdBasedEstimator(lcam_params['projection'])
-    estimator = RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05)
+    # estimator = RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05)
 
     # Image masking
     img_mask = None
-    D = 50
-    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
-    img_mask[: D, :] = 0
-    img_mask[-80:, :] = 0
-    img_mask[:, : D] = 0
-    img_mask[:, -D:] = 0
+    # D = 50
+    # img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
+    # img_mask[: D, :] = 0
+    # img_mask[-80:, :] = 0
+    # img_mask[:, : D] = 0
+    # img_mask[:, -D:] = 0
 
     # Set initial pose
     rot = R.from_quat(cap_quats[0]).as_matrix()
@@ -106,6 +106,6 @@ if __name__ == "__main__":
     )
     draw_vo_poses(
         estimated_poses, all_poses, cap_poses,
-        view=(-55, 145, -60),
-        ylim=(0.0, 1.0)
+        # view=(-55, 145, -60),
+        # ylim=(0.0, 1.0)
     )

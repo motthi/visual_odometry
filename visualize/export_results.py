@@ -14,7 +14,7 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     save_dir = f"{data_dir}/vo_results/normal"
 
     if not os.path.exists(f"{data_dir}"):
@@ -27,7 +27,7 @@ if __name__ == "__main__":
     last = result_data["last_idx"]
 
     dataset = AkiDataset(data_dir, start=start, last=last, step=step)
-    # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
     
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
