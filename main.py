@@ -19,7 +19,7 @@ if __name__ == "__main__":
     last = None
     step = 3
     start = 600
-    last = 800
+    last = 1000
     step = 3
 
     # Load datasets
@@ -33,8 +33,8 @@ if __name__ == "__main__":
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    l_imgs, r_imgs = dataset.load_imgs()
     lcam_params, rcam_params = dataset.camera_params()
+    l_imgs, r_imgs = dataset.load_imgs()
     _, all_poses, all_quats = dataset.read_all_poses_quats()
     cap_timestamps, cap_poses, cap_quats = dataset.read_captured_poses_quats()
     num_img = len(l_imgs)
@@ -45,7 +45,7 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    # detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.08)
+    # detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
     # detector = ShiTomashiCornerDetector()
     detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
@@ -70,6 +70,8 @@ if __name__ == "__main__":
 
     # Image masking
     img_mask = None
+    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
+    img_mask[-100:, :] = 0
     # D = 50
     # img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
     # img_mask[: D, :] = 0
@@ -89,7 +91,7 @@ if __name__ == "__main__":
         detector, descriptor, tracker=tracker,
         estimator=estimator,
         img_mask=img_mask,
-        # num_disp=100,  use_disp=True
+        use_disp=True
     )
 
     estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)

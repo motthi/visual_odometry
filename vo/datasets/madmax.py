@@ -49,12 +49,22 @@ class MadmaxDataset(ImageDataset):
 
         T_base2rcam = T_base2lcam @ T_lcam2rcam
 
-        K_l = np.array(lcam_info['K']).reshape(3, 3)
-        K_r = np.array(rcam_info['K']).reshape(3, 3)
+        T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
+        T_base2rcam = np.linalg.inv(T_base2rcam)
+
+        # K_l = np.array(lcam_info['K']).reshape(3, 3)
+        # K_r = np.array(rcam_info['K']).reshape(3, 3)
+        K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
+        K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
         E_l = T_base2lcam[:3, :]
         E_r = T_base2rcam[:3, :]
+        D_l = np.array(lcam_info['D'])
+        D_r = np.array(rcam_info['D'])
         # from vo.draw import draw_system_reference_frames
-        # draw_system_reference_frames([E_l, E_r], ["lcam", "rcam"], scale=0.2)
+        # T_base2imu = np.eye(4)
+        # T_base2imu[:3, :3] = rot_imu2base.T
+        # T_base2imu[:3, 3] = -trans_imu2base
+        # draw_system_reference_frames([E_l, E_r, T_base2imu], ["lcam", "rcam", 'imu'], scale=0.2)
         # exit()
 
         P_l = K_l @ E_l
