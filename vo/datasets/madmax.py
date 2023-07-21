@@ -28,7 +28,6 @@ class MadmaxDataset(ImageDataset):
             tf_imu2lcam = f.readlines()
         with open(f"{self.dataset_dir}/../calibration/tf__camera_left_to_camera_right.csv") as f:
             tf_lcam2rcam = f.readlines()
-        
 
         rot_imu2base = R.from_quat(list(map(float, tf_imu2base[1].strip().split(',')[3:]))).as_matrix()
         rot_imu2lcam = R.from_quat(list(map(float, tf_imu2lcam[1].strip().split(',')[3:]))).as_matrix()
@@ -49,7 +48,7 @@ class MadmaxDataset(ImageDataset):
         T_lcam2rcam[:3, 3] = trans_lcam2rcam
 
         T_base2rcam = T_base2lcam @ T_lcam2rcam
-        
+
         K_l = np.array(lcam_info['K']).reshape(3, 3)
         K_r = np.array(rcam_info['K']).reshape(3, 3)
         E_l = T_base2lcam[:3, :]
@@ -61,9 +60,19 @@ class MadmaxDataset(ImageDataset):
         P_l = K_l @ E_l
         P_r = K_r @ E_r
 
-        lc_params = {'intrinsic': K_l, 'extrinsic': E_l, 'projection': P_l}
-        rc_params = {'intrinsic': K_r, 'extrinsic': E_r, 'projection': P_r}
-        return lc_params, rc_params
+        self.lcam_params = {
+            'intrinsic': K_l,
+            'extrinsic': E_l,
+            'projection': P_l,
+            'distortion': D_l
+        }
+        self.rcam_params = {
+            'intrinsic': K_r,
+            'extrinsic': E_r,
+            'projection': P_r,
+            'distortion': D_r
+        }
+        return self.lcam_params, self.rcam_params
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
         poses_data = {}

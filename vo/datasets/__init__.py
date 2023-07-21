@@ -7,10 +7,8 @@ from tqdm import tqdm
 
 def distortion_correction(img: np.ndarray, K: np.ndarray, D: np.ndarray) -> np.ndarray:
     h, w = img.shape[:2]
-    nmat, roi = cv2.getOptimalNewCameraMatrix(K, D, (w, h), 1, (w, h))
+    nmat, _ = cv2.getOptimalNewCameraMatrix(K, D, (w, h), 1, (w, h))
     dst = cv2.undistort(img, K, D, None, nmat)
-    x, y, w, h = roi
-    dst = dst[y:y + h, x:x + w]
     return dst
 
 
