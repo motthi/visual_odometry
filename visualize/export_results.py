@@ -28,14 +28,16 @@ if __name__ == "__main__":
 
     dataset = AkiDataset(data_dir, start=start, last=last, step=step)
     dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
-    
+    dataset.camera_params()
+
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
     print(f"Save directory: {save_dir}")
-    
+
     create_save_directories(save_dir)
     for i, idx in enumerate(tqdm(range(start, last - step, step))):
-        img = cv2.imread(dataset.l_img_srcs[i])
+        img, _ = dataset.load_img(i)
+        # img = cv2.imread(dataset.l_img_srcs[i])
         data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
 
         # Disparities
@@ -51,7 +53,8 @@ if __name__ == "__main__":
         # Matchd keypoints
         if i == 0:
             continue
-        prev_img = cv2.imread(dataset.l_img_srcs[i])
+        # prev_img = cv2.imread(dataset.l_img_srcs[i])
+        prev_img, _ = dataset.load_img(i - 1)
         if prev_img is not None:
             match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
             cv2.imwrite(f"{save_dir}/matched_kpts/{idx:04d}.png", match_img)
