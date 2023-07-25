@@ -47,10 +47,10 @@ class MadmaxDataset(ImageDataset):
         T_lcam2rcam[:3, :3] = rot_lcam2rcam
         T_lcam2rcam[:3, 3] = trans_lcam2rcam
 
-        T_base2rcam = T_base2lcam @ T_lcam2rcam
+        T_base2rcam = T_lcam2rcam @ T_base2lcam
 
-        T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
-        T_base2rcam = np.linalg.inv(T_base2rcam)
+        # T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
+        # T_base2rcam = np.linalg.inv(T_base2rcam)
 
         # K_l = np.array(lcam_info['K']).reshape(3, 3)
         # K_r = np.array(rcam_info['K']).reshape(3, 3)
@@ -60,12 +60,12 @@ class MadmaxDataset(ImageDataset):
         E_r = T_base2rcam[:3, :]
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
-        # from vo.draw import draw_system_reference_frames
-        # T_base2imu = np.eye(4)
-        # T_base2imu[:3, :3] = rot_imu2base.T
-        # T_base2imu[:3, 3] = -trans_imu2base
-        # draw_system_reference_frames([E_l, E_r, T_base2imu], ["lcam", "rcam", 'imu'], scale=0.2)
-        # exit()
+        from vo.draw import draw_system_reference_frames
+        T_base2imu = np.eye(4)
+        T_base2imu[:3, :3] = rot_imu2base.T
+        T_base2imu[:3, 3] = -trans_imu2base
+        draw_system_reference_frames([E_l, E_r, T_base2imu], ["lcam", "rcam", 'imu'], scale=0.2)
+        exit()
 
         P_l = K_l @ E_l
         P_r = K_r @ E_r
@@ -87,6 +87,12 @@ class MadmaxDataset(ImageDataset):
     def read_captured_poses_quats(self) -> list[np.ndarray]:
         poses_data = {}
         ts = []
+        # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
+        #     lines = f.readlines()
+        # for line in lines[14:]:
+        #     data = line.split(",")
+        #     poses_data[f'{data[0]}'] = [float(data[3]), float(data[4]), float(data[5]), float(data[10]), float(data[11]), float(data[12]), float(data[9])]
+        #     ts.append(float(data[0]))
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
@@ -114,6 +120,13 @@ class MadmaxDataset(ImageDataset):
         timestamps = []
         poses = []
         quats = []
+        # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
+        #     lines = f.readlines()
+        # for line in lines[14:]:
+        #     data = line.split(",")
+        #     timestamps.append(float(data[0]))
+        #     poses.append([float(data[3]), float(data[4]), float(data[5])])
+        #     quats.append([float(data[10]), float(data[11]), float(data[12]), float(data[9])])   # x, y, z, w
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
