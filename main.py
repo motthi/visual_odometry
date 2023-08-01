@@ -18,8 +18,8 @@ if __name__ == "__main__":
     start = 0
     last = None
     step = 3
-    start = 600
-    last = 1000
+    start = 700
+    last = 4000
     step = 3
 
     # Load datasets
@@ -60,7 +60,7 @@ if __name__ == "__main__":
     # Tracker
     tracker = BruteForceTracker(cv2.NORM_HAMMING, cross_check=True)
     # tracker = FlannTracker()
-    # tracker = OpticalFlowTracker()
+    tracker = OpticalFlowTracker(win_size=(100, 100))
 
     # Estimator
     # estimator = MonocularVoEstimator(lcam_params['intrinsic'])
