@@ -30,55 +30,72 @@ class MadmaxDataset(ImageDataset):
             tf_lcam2rcam = f.readlines()
 
         rot_imu2base = R.from_quat(list(map(float, tf_imu2base[1].strip().split(',')[3:]))).as_matrix()
-        rot_imu2lcam = R.from_quat(list(map(float, tf_imu2lcam[1].strip().split(',')[3:]))).as_matrix()
-        rot_lcam2rcam = R.from_quat(list(map(float, tf_lcam2rcam[1].strip().split(',')[3:]))).as_matrix()
-        rot_base2lcam = rot_imu2lcam @ rot_imu2base.T
-
         trans_imu2base = np.array([list(map(float, tf_imu2base[1].strip().split(',')[:3]))])
+        T_imu2base = np.eye(4)
+        T_imu2base[:3, :3] = rot_imu2base
+        T_imu2base[:3, 3] = trans_imu2base
+        T_base2imu = np.linalg.inv(T_imu2base)
+
+        rot_imu2lcam = R.from_quat(list(map(float, tf_imu2lcam[1].strip().split(',')[3:]))).as_matrix()
         trans_imu2lcam = np.array([list(map(float, tf_imu2lcam[1].strip().split(',')[:3]))])
+        T_imu2lcam = np.eye(4)
+        T_imu2lcam[:3, :3] = rot_imu2lcam
+        T_imu2lcam[:3, 3] = trans_imu2lcam
+
+        rot_lcam2rcam = R.from_quat(list(map(float, tf_lcam2rcam[1].strip().split(',')[3:]))).as_matrix()
         trans_lcam2rcam = np.array([list(map(float, tf_lcam2rcam[1].strip().split(',')[:3]))])
-        trans_base2lcam = trans_imu2lcam - trans_imu2base
-
-        T_base2lcam = np.eye(4)
-        T_base2lcam[:3, :3] = rot_base2lcam
-        T_base2lcam[:3, 3] = trans_base2lcam
-
         T_lcam2rcam = np.eye(4)
         T_lcam2rcam[:3, :3] = rot_lcam2rcam
         T_lcam2rcam[:3, 3] = trans_lcam2rcam
 
-        T_base2rcam = T_lcam2rcam @ T_base2lcam
+        T_base2lcam = T_base2imu @ T_imu2lcam
+        T_base2rcam = T_base2lcam @ T_lcam2rcam
 
-        # T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
-        # T_base2rcam = np.linalg.inv(T_base2rcam)
+        # rot_base2lcam = rot_imu2lcam @ rot_imu2base.T
+        # trans_base2lcam = trans_imu2lcam - trans_imu2base
 
+        # T_base2lcam = np.eye(4)
+        # T_base2lcam[:3, :3] = rot_base2lcam
+        # T_base2lcam[:3, 3] = trans_base2lcam
+
+        # T_lcam2rcam = np.eye(4)
+        # T_lcam2rcam[:3, :3] = rot_lcam2rcam
+        # T_lcam2rcam[:3, 3] = trans_lcam2rcam
+
+        # T_base2rcam = T_base2lcam @ T_lcam2rcam
+
+        T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
+        T_base2rcam = np.linalg.inv(T_base2rcam)
+
+        # print(np.array(lcam_info['K']).reshape(3, 3))
+        # print(np.array([lcam_info['P']]).reshape(3, 4))
         # K_l = np.array(lcam_info['K']).reshape(3, 3)
         # K_r = np.array(rcam_info['K']).reshape(3, 3)
         K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
         K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
-        E_l = T_base2lcam[:3, :]
-        E_r = T_base2rcam[:3, :]
+        # E_l = T_base2lcam[:3, :]
+        # E_r = T_base2rcam[:3, :]
+        # P_l = K_l @ E_l
+        # P_r = K_r @ E_r
+        # print(E_l)
+        # print(P_l)
+        # from vo.draw import draw_system_reference_frames
+        # draw_system_reference_frames([E_l, E_r], ["lcam", "rcam"], scale=0.2)
+        # exit()
+        P_l = np.array(lcam_info['P']).reshape(3, 4)
+        P_r = np.array(rcam_info['P']).reshape(3, 4)
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
-        from vo.draw import draw_system_reference_frames
-        T_base2imu = np.eye(4)
-        T_base2imu[:3, :3] = rot_imu2base.T
-        T_base2imu[:3, 3] = -trans_imu2base
-        draw_system_reference_frames([E_l, E_r, T_base2imu], ["lcam", "rcam", 'imu'], scale=0.2)
-        exit()
-
-        P_l = K_l @ E_l
-        P_r = K_r @ E_r
 
         self.lcam_params = {
             'intrinsic': K_l,
-            'extrinsic': E_l,
+            # 'extrinsic': E_l,
             'projection': P_l,
             'distortion': D_l
         }
         self.rcam_params = {
             'intrinsic': K_r,
-            'extrinsic': E_r,
+            # 'extrinsic': E_r,
             'projection': P_r,
             'distortion': D_r
         }
