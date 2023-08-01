@@ -73,8 +73,8 @@ class MadmaxDataset(ImageDataset):
         # K_r = np.array(rcam_info['K']).reshape(3, 3)
         K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
         K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
-        # E_l = T_base2lcam[:3, :]
-        # E_r = T_base2rcam[:3, :]
+        E_l = T_base2lcam[:3, :]
+        E_r = T_base2rcam[:3, :]
         # P_l = K_l @ E_l
         # P_r = K_r @ E_r
         # print(E_l)
@@ -89,13 +89,13 @@ class MadmaxDataset(ImageDataset):
 
         self.lcam_params = {
             'intrinsic': K_l,
-            # 'extrinsic': E_l,
+            'extrinsic': E_l,
             'projection': P_l,
             'distortion': D_l
         }
         self.rcam_params = {
             'intrinsic': K_r,
-            # 'extrinsic': E_r,
+            'extrinsic': E_r,
             'projection': P_r,
             'distortion': D_r
         }
