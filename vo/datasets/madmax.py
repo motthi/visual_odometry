@@ -1,9 +1,12 @@
 import glob
 import re
 import yaml
+import warnings
 import numpy as np
 from scipy.spatial.transform import Rotation as R
 from vo.datasets import ImageDataset
+
+img_timestamp_re = re.compile(r'img_rect_left_(\d+).png')
 
 
 class MadmaxDataset(ImageDataset):
@@ -11,6 +14,9 @@ class MadmaxDataset(ImageDataset):
         super().__init__(dataset_dir, start, last, step)
         self.l_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/img_rect_left/*.png"))
         self.r_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/img_rect_right/*.png"))
+        if last > len(self.l_img_srcs):
+            warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+            last = None
         if last is None:
             last = len(self.l_img_srcs)
             self.last = len(self.l_img_srcs)
@@ -51,19 +57,6 @@ class MadmaxDataset(ImageDataset):
         T_base2lcam = T_base2imu @ T_imu2lcam
         T_base2rcam = T_base2lcam @ T_lcam2rcam
 
-        # rot_base2lcam = rot_imu2lcam @ rot_imu2base.T
-        # trans_base2lcam = trans_imu2lcam - trans_imu2base
-
-        # T_base2lcam = np.eye(4)
-        # T_base2lcam[:3, :3] = rot_base2lcam
-        # T_base2lcam[:3, 3] = trans_base2lcam
-
-        # T_lcam2rcam = np.eye(4)
-        # T_lcam2rcam[:3, :3] = rot_lcam2rcam
-        # T_lcam2rcam[:3, 3] = trans_lcam2rcam
-
-        # T_base2rcam = T_base2lcam @ T_lcam2rcam
-
         T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
         T_base2rcam = np.linalg.inv(T_base2rcam)
 
@@ -75,15 +68,15 @@ class MadmaxDataset(ImageDataset):
         K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
         E_l = T_base2lcam[:3, :]
         E_r = T_base2rcam[:3, :]
-        # P_l = K_l @ E_l
-        # P_r = K_r @ E_r
+        P_l = K_l @ E_l
+        P_r = K_r @ E_r
         # print(E_l)
         # print(P_l)
         # from vo.draw import draw_system_reference_frames
         # draw_system_reference_frames([E_l, E_r], ["lcam", "rcam"], scale=0.2)
         # exit()
-        P_l = np.array(lcam_info['P']).reshape(3, 4)
-        P_r = np.array(rcam_info['P']).reshape(3, 4)
+        # P_l = np.array(lcam_info['P']).reshape(3, 4)
+        # P_r = np.array(rcam_info['P']).reshape(3, 4)
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
 
@@ -120,7 +113,6 @@ class MadmaxDataset(ImageDataset):
         timestamps = []
         poses = []
         quats = []
-        img_timestamp_re = re.compile(r'img_rect_left_(\d+).png')
         for img_src in self.l_img_srcs:
             img_timestamp = float(img_timestamp_re.search(img_src).group(1)) * 1e-9
             idx = np.abs(np.asarray(ts) - img_timestamp).argmin()
@@ -152,7 +144,14 @@ class MadmaxDataset(ImageDataset):
             poses.append([float(data[1]), float(data[2]), float(data[3])])
             quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[7])])   # x, y, z, w
 
-        timestamps = np.array(timestamps)
-        poses = np.array(poses, dtype=np.float32)
-        quats = np.array(quats, dtype=np.float32)
+        start_img = self.l_img_srcs[0]
+        img_ts = float(img_timestamp_re.search(start_img).group(1)) * 1e-9
+        start_idx = np.abs(np.asarray(timestamps) - img_ts).argmin()
+        end_img = self.l_img_srcs[-1]
+        img_ts = float(img_timestamp_re.search(end_img).group(1)) * 1e-9
+        end_idx = np.abs(np.asarray(timestamps) - img_ts).argmin()
+
+        timestamps = np.array(timestamps[start_idx:end_idx])
+        poses = np.array(poses[start_idx:end_idx])
+        quats = np.array(quats[start_idx:end_idx])
         return timestamps, poses, quats
