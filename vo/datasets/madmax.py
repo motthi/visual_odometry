@@ -14,7 +14,7 @@ class MadmaxDataset(ImageDataset):
         super().__init__(dataset_dir, start, last, step)
         self.l_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/img_rect_left/*.png"))
         self.r_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/img_rect_right/*.png"))
-        if last > len(self.l_img_srcs):
+        if last is not None and last > len(self.l_img_srcs):
             warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
             last = None
         if last is None:
