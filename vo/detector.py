@@ -30,15 +30,17 @@ class ShiTomashiCornerDetector():
     def detect(self, img: np.ndarray, mask: np.ndarray = None) -> list[cv2.KeyPoint]:
         gray_img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         kpts = cv2.goodFeaturesToTrack(gray_img, self.max_corners, self.quality_level, self.min_distance, blockSize=self.blocksize, mask=mask)
+        if kpts is None:
+            return []
         kpts = [cv2.KeyPoint(float(x[0][0]), float(x[0][1]), 13) for x in kpts]
         return kpts
 
+
 class BucketingDetector():
-    def __init__(self, num_backets, num_kpts, base_detector, descriptor):
+    def __init__(self, num_backets, num_kpts, base_detector):
         self.num_backets = num_backets
         self.num_kpts = num_kpts
         self.detector = base_detector
-        self.descriptor = descriptor
 
     def detect(self, img: np.ndarray, mask: np.ndarray = None) -> list[cv2.KeyPoint]:
         h, w = img.shape[:2]
@@ -53,10 +55,11 @@ class BucketingDetector():
                 )
                 if len(kpts_) == 0:
                     continue
-                
+
                 for pt in kpts_:
                     pt.pt = (pt.pt[0] + j * w_step, pt.pt[1] + i * h_step)
 
+                kpts_ = list(kpts_)
                 np.random.shuffle(kpts_)
                 kpts += kpts_[:self.num_kpts]
         return kpts
