@@ -49,7 +49,6 @@ if __name__ == "__main__":
     # detector = ShiTomashiCornerDetector()
     detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
-    # detector = BucketingDetector(4, 100, detector)
 
     # Feature descriptor
     descriptor = cv2.ORB_create()
