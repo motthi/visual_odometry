@@ -1,5 +1,4 @@
 import os
-from tqdm import tqdm
 import numpy as np
 from vo.utils import load_result_poses
 from vo.analysis import *

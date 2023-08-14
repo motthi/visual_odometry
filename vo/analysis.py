@@ -1,5 +1,4 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R
 
 # ref https://arxiv.org/pdf/1910.04755.pdf
 
