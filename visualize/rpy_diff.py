@@ -10,5 +10,5 @@ if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
     data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     result_dir = f"{data_dir}/vo_results/normal"
-    _, est_quats, _, gt_quats, _, gt_img_quats = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_quats, _, gt_quats, _, gt_img_quats = load_result_poses(f"{result_dir}/vo_result_poses.npz")  # FIXME
     draw_euler_diff(est_quats, gt_img_quats, f"{result_dir}/euler_diff.png")

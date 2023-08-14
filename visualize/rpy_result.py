@@ -10,7 +10,7 @@ if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
     data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     save_dir = f"{data_dir}/vo_results/normal"
-    est_poses, est_quats, gt_poses, gt_quats, gt_img_poses, gt_img_quats = load_result_poses(f"{save_dir}/vo_result_poses.npz")
+    est_poses, est_quats, gt_poses, gt_quats, gt_img_poses, gt_img_quats = load_result_poses(f"{save_dir}/vo_result_poses.npz")  # FIXME
     draw_vo_poses_and_quats(
         est_poses, est_quats, gt_poses, gt_img_poses, gt_img_quats,
         draw_data="all",

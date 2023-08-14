@@ -74,7 +74,7 @@ def draw_abs_erros(e_poses, r_poses, save_src=None):
 if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20221025_4/"
     # data_dir = "./datasets/feature_rich_rock/"
-    estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")
+    estimated_poses, _, img_poses = load_result_poses(f"{data_dir}/vo_result_poses.npz")  # FIXME
     rmses = []
     for e_pos, r_pos in zip(estimated_poses, img_poses):
         rmses.append(np.linalg.norm(e_pos - r_pos))
@@ -83,11 +83,3 @@ if __name__ == "__main__":
     draw_relative_position(e_diffs, r_diffs, save_src=f"{data_dir}/relative_pos.png")
     draw_relative_position_error(e_diffs, r_diffs, save_src=f"{data_dir}/relative_error.png")
     draw_absolute_position_error(estimated_poses, img_poses, save_src=f"{data_dir}/absolute_error.png")
-
-    # data_dir = "./datasets/feature_less_rock_05/"
-    # e_pos_B, _, i_pos_B = load_result_poses(f"{data_dir}/vo_result_poses.npz")
-    # data_dir = "./datasets/feature_less_rock/"
-    # e_pos_C, _, i_pos_C = load_result_poses(f"{data_dir}/vo_result_poses.npz")
-    # data_dir = "./datasets/feature_rich_rock/"
-    # e_pos_D, _, i_pos_D = load_result_poses(f"{data_dir}/vo_result_poses.npz")
-    # draw_abs_erros([e_pos_B, e_pos_C, e_pos_D], [i_pos_B, i_pos_C, i_pos_D], save_src=f"{data_dir}/absolute_errors.png")
