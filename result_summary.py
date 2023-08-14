@@ -2,13 +2,14 @@ import os
 from tqdm import tqdm
 import numpy as np
 from vo.utils import load_result_poses
+from vo.analysis import *
 
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
     # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    save_dir = f"{data_dir}/vo_results/lm"
+    save_dir = f"{data_dir}/vo_results/normal"
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
@@ -18,14 +19,15 @@ if __name__ == "__main__":
     step = result_data["step"]
     start = result_data["start_idx"]
     last = result_data["last_idx"]
-    e_pose, _, gt_all_pose, _, gt_img_pose, _ = load_result_poses(f"{save_dir}/vo_result_poses.npz")
+    e_pose, gt_img_pose = load_result_poses(f"{save_dir}/vo_result_poses.npz")
 
     # Calcularate Absolute Trajectory Error
-    error = gt_img_pose - e_pose
-    ates = np.sqrt(np.sum(error[:, :3] ** 2, axis=1))
-    rmse = np.mean(ates)
-    std = np.std(ates)
-    print(f"Absolute Trajectory Error\t{rmse:.4f} +/- {std:.4f} [m]")
+    ate = calc_ate(gt_img_pose, e_pose)
+    rpe_trans = calc_rpe_trans(gt_img_pose, e_pose)
+    rpe_rot = calc_rpe_rot(gt_img_pose, e_pose)
+    print(f"ATE\t\t{ate} [m]")
+    print(f"RPE(trans)\t{rpe_trans} [m]")
+    print(f"RPE(rot)\t{rpe_rot*180.0/np.pi} [deg]")
 
     kpt_proc_time = 0.0
     stereo_proc_time = 0.0
@@ -46,6 +48,3 @@ if __name__ == "__main__":
     print(f"  Keypoint\t: {kpt_proc_time:.3f} [s]")
     print(f"  Stereo\t: {stereo_proc_time:.3f} [s]")
     print(f"  Optimize\t: {optmize_proc_time:.3f} [s]")
-
-
-

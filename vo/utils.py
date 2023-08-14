@@ -45,13 +45,23 @@ def load_result_poses(src: str):
     data = np.load(src)
     e_poses = data['estimated_poses']
     e_quats = data['estimated_quats']
-    r_poses = data['real_poses']
-    r_quats = data['real_quats']
+    # r_poses = data['real_poses']
+    # r_quats = data['real_quats']
     ri_poses = data['real_img_poses']
     ri_quats = data['real_img_quats']
-    diff = ri_poses[0] - e_poses[0]
-    e_poses += diff
-    return e_poses, e_quats, r_poses, r_quats, ri_poses, ri_quats
+    e_ps, gt_ps = [], []
+    for e_p, e_q, ri_p, ri_q in zip(e_poses, e_quats, ri_poses, ri_quats):
+        # form translation matrix
+        rot_e = R.from_quat(e_q).as_matrix()
+        rot_gt = R.from_quat(ri_q).as_matrix()
+        T_e = form_transf(rot_e, e_p)
+        T_gt = form_transf(rot_gt, ri_p)
+        e_ps.append(T_e)
+        gt_ps.append(T_gt)
+    return e_ps, gt_ps
+    # diff = ri_poses[0] - e_poses[0]
+    # e_poses += diff
+    # return e_poses, e_quats, r_poses, r_quats, ri_poses, ri_quats
 
 
 def quaternion_mean(quats: np.ndarray):
