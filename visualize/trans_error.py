@@ -17,9 +17,9 @@ if __name__ == "__main__":
     error_mean = np.mean(trans_errors, axis=0)
     error_std = np.std(trans_errors, axis=0)
     print("Translation errors")
-    print(f"\t{error_mean[0]} +/- {error_std[0]} [m]")
-    print(f"\t{error_mean[1]} +/- {error_std[1]} [m]")
-    print(f"\t{error_mean[2]} +/- {error_std[2]} [m]")
+    print(f"\tX : {error_mean[0]} +/- {error_std[0]} [m]")
+    print(f"\tY : {error_mean[1]} +/- {error_std[1]} [m]")
+    print(f"\tZ : {error_mean[2]} +/- {error_std[2]} [m]")
 
     fig, ax = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
     ax[0].plot(trans_errors[:, 0])
