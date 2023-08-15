@@ -48,8 +48,8 @@ if __name__ == "__main__":
     stereo_proc_time = stereo_proc_time / (i + 1)
     optmize_proc_time = optmize_proc_time / (i + 1)
 
-    print(f"Processing time")
-    print(f"  Total\t\t: {kpt_proc_time + stereo_proc_time + optmize_proc_time:.3f} [s]")
-    print(f"  Keypoint\t: {kpt_proc_time:.3f} [s]")
-    print(f"  Stereo\t: {stereo_proc_time:.3f} [s]")
-    print(f"  Optimize\t: {optmize_proc_time:.3f} [s]")
+    print(f"\nProcessing time")
+    print(f"  Total\t\t: {kpt_proc_time + stereo_proc_time + optmize_proc_time:.5f} [s]")
+    print(f"  Keypoint\t: {kpt_proc_time:.5f} [s]")
+    print(f"  Stereo\t: {stereo_proc_time:.5f} [s]")
+    print(f"  Optimize\t: {optmize_proc_time:.5f} [s]")
