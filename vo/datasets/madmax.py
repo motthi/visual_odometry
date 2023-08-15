@@ -95,7 +95,7 @@ class MadmaxDataset(ImageDataset):
         return self.lcam_params, self.rcam_params
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
-        poses_data = {}
+        poses = {}
         ts = []
         # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
         #     lines = f.readlines()
@@ -107,51 +107,53 @@ class MadmaxDataset(ImageDataset):
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
-            poses_data[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
             ts.append(float(data[0]))
+            poses[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
+        ts  = np.array(ts, float)
 
         timestamps = []
-        poses = []
+        trans = []
         quats = []
         for img_src in self.l_img_srcs:
             img_timestamp = float(img_timestamp_re.search(img_src).group(1)) * 1e-9
-            idx = np.abs(np.asarray(ts) - img_timestamp).argmin()
-            closest_timestamp = ts[idx]
-            pose = poses_data[f'{closest_timestamp:.4f}']
+            idx = np.abs(ts - img_timestamp).argmin()
+            pose = poses[f'{ts[idx]:.4f}']
             timestamps.append(img_timestamp)
-            poses.append(pose[:3])
+            trans.append(pose[:3])
             quats.append(pose[3:])
-        poses = np.array(poses, dtype=np.float32)
+        timestamps = np.array(timestamps, dtype=np.float32)
+        trans = np.array(trans, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
-        return timestamps, poses, quats
+        return timestamps, trans, quats
 
     def read_all_poses_quats(self) -> list[np.ndarray]:
         timestamps = []
-        poses = []
+        trans = []
         quats = []
         # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
         #     lines = f.readlines()
         # for line in lines[14:]:
         #     data = line.split(",")
         #     timestamps.append(float(data[0]))
-        #     poses.append([float(data[3]), float(data[4]), float(data[5])])
+        #     trans.append([float(data[3]), float(data[4]), float(data[5])])
         #     quats.append([float(data[10]), float(data[11]), float(data[12]), float(data[9])])   # x, y, z, w
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
             timestamps.append(float(data[0]))
-            poses.append([float(data[1]), float(data[2]), float(data[3])])
+            trans.append([float(data[1]), float(data[2]), float(data[3])])
             quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[7])])   # x, y, z, w
+        timestamps = np.array(timestamps, float)
+        trans = np.array(trans, dtype=np.float32)
+        quats = np.array(quats, dtype=np.float32)
 
-        start_img = self.l_img_srcs[0]
-        img_ts = float(img_timestamp_re.search(start_img).group(1)) * 1e-9
-        start_idx = np.abs(np.asarray(timestamps) - img_ts).argmin()
-        end_img = self.l_img_srcs[-1]
-        img_ts = float(img_timestamp_re.search(end_img).group(1)) * 1e-9
-        end_idx = np.abs(np.asarray(timestamps) - img_ts).argmin()
-
-        timestamps = np.array(timestamps[start_idx:end_idx])
-        poses = np.array(poses[start_idx:end_idx])
-        quats = np.array(quats[start_idx:end_idx])
-        return timestamps, poses, quats
+        s_img_scr, e_img_scr = self.l_img_srcs[0], self.l_img_srcs[-1]
+        s_img_ts = float(img_timestamp_re.search(s_img_scr).group(1)) * 1e-9
+        e_img_ts = float(img_timestamp_re.search(e_img_scr).group(1)) * 1e-9
+        start_idx = np.abs(timestamps - s_img_ts).argmin()
+        end_idx = np.abs(timestamps - e_img_ts).argmin()
+        timestamps = timestamps[start_idx:end_idx]
+        trans = trans[start_idx:end_idx]
+        quats = quats[start_idx:end_idx]
+        return timestamps, trans, quats

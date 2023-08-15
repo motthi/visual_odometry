@@ -33,10 +33,11 @@ if __name__ == "__main__":
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
-    lcam_params, rcam_params = dataset.camera_params()
+    gt_timestamps, gt_trans, gt_quats = dataset.read_all_poses_quats()
+    img_timestamps, img_trans, img_quats = dataset.read_captured_poses_quats()
+    gt_poses = trans_quats_to_poses(gt_quats, gt_trans)
+    img_poses = trans_quats_to_poses(img_quats, img_trans)
     l_imgs, r_imgs = dataset.load_imgs()
-    gt_timestamps, gt_poses, gt_quats = dataset.read_all_poses_quats()
-    cap_timestamps, cap_poses, cap_quats = dataset.read_captured_poses_quats()
     num_img = len(l_imgs)
 
     print(f"Dataset directory\t: {data_dir}")
@@ -62,10 +63,10 @@ if __name__ == "__main__":
     # tracker = OpticalFlowTracker(win_size=(100, 100))
 
     # Estimator
-    # estimator = MonocularVoEstimator(lcam_params['intrinsic'])
-    estimator = LmBasedEstimator(lcam_params['projection'])
-    # estimator = SvdBasedEstimator(lcam_params['projection'])
-    # estimator = RansacSvdBasedEstimator(lcam_params['projection'], max_trial=50, inlier_thd=0.05)
+    # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
+    estimator = LmBasedEstimator(dataset.lcam_params['projection'])
+    # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
+    # estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_trial=50, inlier_thd=0.05)
 
     # Image masking
     img_mask = None
@@ -79,13 +80,13 @@ if __name__ == "__main__":
     # img_mask[:, -D:] = 0
 
     # Set initial pose
-    rot = R.from_quat(cap_quats[0]).as_matrix()
-    trans = np.array([cap_poses[0]])
-    init_pose = np.vstack((np.hstack((rot, trans.T)), np.array([0.0, 0.0, 0.0, 1.0])))
+    rot = R.from_quat(img_quats[0]).as_matrix()
+    trans = np.array([img_trans[0]])
+    init_pose = form_transf(rot, trans)
 
-    # vo = MonocularVisualOdometry(lcam_params, l_imgs, detector, descriptor, tracker, estimator, img_mask=img_mask)
+    # vo = MonocularVisualOdometry(dataset.lcam_params, l_imgs, detector, descriptor, tracker, estimator, img_mask=img_mask)
     vo = StereoVisualOdometry(
-        lcam_params, rcam_params,
+        dataset.lcam_params, dataset.rcam_params,
         l_imgs, r_imgs,
         detector, descriptor, tracker=tracker,
         estimator=estimator,

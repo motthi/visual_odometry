@@ -34,8 +34,7 @@ class ImageDataset():
         self.step = step
         self.l_img_srcs = []
         self.r_img_srcs = []
-        self.lcam_params = {}
-        self.rcam_params = {}
+        self.lcam_params, self.rcam_params = self.camera_params()
 
     def load_imgs(self):
         l_imgs, r_imgs = [], []
@@ -55,7 +54,7 @@ class ImageDataset():
             r_img = cv2.imread(self.r_img_srcs[idx])
         return l_img, r_img
 
-    def pose_quat_slice(self, timestamps, poses, quats, start, last, step):
+    def slice_trans_quats(self, timestamps, poses, quats, start, last, step):
         timestamps = timestamps[start:last:step]
         poses = poses[start:last:step]
         quats = quats[start:last:step]
