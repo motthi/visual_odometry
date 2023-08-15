@@ -43,25 +43,31 @@ def load_images(src: str = "./datasets", last_img_idx: int = 30) -> list[np.ndar
 
 def load_result_poses(src: str):
     data = np.load(src)
-    e_poses = data['estimated_poses']
-    e_quats = data['estimated_quats']
-    # r_poses = data['real_poses']
-    # r_quats = data['real_quats']
-    ri_poses = data['real_img_poses']
-    ri_quats = data['real_img_quats']
-    e_ps, gt_ps = [], []
-    for e_p, e_q, ri_p, ri_q in zip(e_poses, e_quats, ri_poses, ri_quats):
-        # form translation matrix
+    est_poses = data['estimated_poses']
+    est_quats = data['estimated_quats']
+    gt_all_poses = data['real_poses']
+    gt_all_quats = data['real_quats']
+    gt_poses = data['real_img_poses']
+    gt_quats = data['real_img_quats']
+
+    est_ps, gt_all_ps, gt_ps = [], [], []
+    for est_p, e_q, gt_all_p, gt_all_q, gt_p, gt_q in zip(est_poses, est_quats, gt_all_poses, gt_all_quats, gt_poses, gt_quats):
         rot_e = R.from_quat(e_q).as_matrix()
-        rot_gt = R.from_quat(ri_q).as_matrix()
-        T_e = form_transf(rot_e, e_p)
-        T_gt = form_transf(rot_gt, ri_p)
-        e_ps.append(T_e)
+        rot_g = R.from_quat(gt_all_q).as_matrix()
+        rot_gt = R.from_quat(gt_q).as_matrix()
+
+        T_est = form_transf(rot_e, est_p)
+        T_gt_all = form_transf(rot_g, gt_all_p)
+        T_gt = form_transf(rot_gt, gt_p)
+
+        est_ps.append(T_est)
+        gt_all_ps.append(T_gt_all)
         gt_ps.append(T_gt)
-    return e_ps, gt_ps
-    # diff = ri_poses[0] - e_poses[0]
-    # e_poses += diff
-    # return e_poses, e_quats, r_poses, r_quats, ri_poses, ri_quats
+
+    est_ps = np.array(est_ps)
+    gt_all_ps = np.array(gt_all_ps)
+    gt_ps = np.array(gt_ps)
+    return est_ps, gt_all_ps, gt_ps
 
 
 def quaternion_mean(quats: np.ndarray):
@@ -77,6 +83,13 @@ def form_transf(R, t):
     T[3, 3] = 1.0
     return T
 
+def trans_quats_to_poses(quats, trans):
+    poses = []
+    for t, q in zip(trans, quats):
+        rot = R.from_quat(q).as_matrix()
+        pose = form_transf(rot, t)
+        poses.append(pose)
+    return np.array(poses)
 
 def save_trajectory(
     src: str,

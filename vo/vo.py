@@ -70,9 +70,8 @@ class VisualOdometry():
             pbar.set_description(f"{idx}/{last_img_idx-1} ({ptime:.2f}s)")
             if transf is None:
                 tqdm.write(f"Index {idx:03d} : Failed to estimate pose")
-        quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in poses])
-        poses = np.array([np.array(pose[0:3, 3]).T for pose in poses])
-        return poses, quats
+        poses = np.array(poses)
+        return poses
 
     def estimate_pose(self):
         raise NotImplementedError

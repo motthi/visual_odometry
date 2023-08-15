@@ -75,11 +75,9 @@ def draw_vo_poses(
 
 
 def draw_vo_poses_and_quats(
-    estimated_poses: np.ndarray,
-    estimated_quats: np.ndarray,
-    real_poses: np.ndarray,
-    real_img_poses: np.ndarray = None,
-    real_img_quats: np.ndarray = None,
+    est_poses: np.ndarray,
+    gt_all_poses: np.ndarray,
+    gt_poses: np.ndarray = None,
     scale=0.1,
     save_src: str = None,
     draw_data: str = "all",
@@ -90,16 +88,15 @@ def draw_vo_poses_and_quats(
     step=5
 ):
     fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, draw_data)
-    for e_pose, e_quat, ri_pose, ri_quat in list(zip(estimated_poses, estimated_quats, real_img_poses, real_img_quats))[::step]:
-        e_rot = R.from_quat(e_quat).as_matrix()
-        ri_rot = R.from_quat(ri_quat).as_matrix()
-        draw_coordinate(ax, e_rot, e_pose[:, np.newaxis], scale=scale)
-        draw_coordinate(ax, ri_rot, ri_pose[:, np.newaxis], scale=scale)
+    draw_trajectory(ax, est_poses, gt_poses, gt_all_poses, draw_data)
+
+    for e_pose, gt_pose in list(zip(est_poses, gt_poses))[::step]:
+        draw_coordinate(ax, e_pose[:3, :3], e_pose[:3, 3], scale=scale)
+        draw_coordinate(ax, gt_pose[:3, :3], gt_pose[:3, 3], scale=scale)
     ax.set_xlabel("x")
     ax.set_ylabel("y")
     ax.set_zlabel("z")
-    # set_lims(ax, xlim, ylim, zlim)
+    set_lims(ax, xlim, ylim, zlim)
     ax.set_aspect('equal')
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
@@ -109,33 +106,36 @@ def draw_vo_poses_and_quats(
 
 def draw_trajectory(
     ax: Axes,
-    estimated_poses: np.ndarray,
-    real_img_poses: np.ndarray,
-    real_poses: np.ndarray,
+    est_poses: np.ndarray,
+    gt_poses: np.ndarray,
+    gt_all_poses: np.ndarray,
     dim: int = 3,
     draw_data: str = "all"
 ):
+    e_trans = est_poses[:, :3, 3]
+    gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
+    gt_all_trans = gt_all_poses[:, :3, 3] if gt_all_poses is not None else None
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(real_poses[0][0], real_poses[0][2], 'o', c="r", label="Start")
-            ax.plot(real_poses[-1][0], real_poses[-1][2], 'x', c="r", label="End")
-            ax.plot(real_poses[:, 0], real_poses[:, 2], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][0], gt_all_trans[0][2], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][0], gt_all_trans[-1][2], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, 0], gt_all_trans[:, 2], c='#ff7f0e', label='Truth')
         else:
-            ax.plot(real_poses[0][0], real_poses[0][1], real_poses[0][2], 'o', c="r", label="Start")
-            ax.plot(real_poses[-1][0], real_poses[-1][1], real_poses[-1][2], 'x', c="r", label="End")
-            ax.plot(real_poses[:, 0], real_poses[:, 1], real_poses[:, 2], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][0], gt_all_trans[0][1], gt_all_trans[0][2], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][0], gt_all_trans[-1][1], gt_all_trans[-1][2], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, 0], gt_all_trans[:, 1], gt_all_trans[:, 2], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(estimated_poses[:, 0], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, 0], e_trans[:, 2], '-o', label='Estimated', markersize=2)
         else:
-            ax.plot(estimated_poses[:, 0], estimated_poses[:, 1], estimated_poses[:, 2], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, 0], e_trans[:, 1], e_trans[:, 2], '-o', label='Estimated', markersize=2)
     if draw_data == "all":
-        if real_img_poses is not None:
+        if gt_poses is not None:
             if dim == 2:
-                ax.plot(real_img_poses[:, 0], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_trans[:, 0], gt_trans[:, 2], 'o', c='#ff7f0e', markersize=2)
             else:
-                ax.plot(real_img_poses[:, 0], real_img_poses[:, 1], real_img_poses[:, 2], 'o', c='#ff7f0e', markersize=2)
-            for e_pos, r_pos in zip(estimated_poses, real_img_poses):
+                ax.plot(gt_trans[:, 0], gt_trans[:, 1], gt_trans[:, 2], 'o', c='#ff7f0e', markersize=2)
+            for e_pos, r_pos in zip(e_trans, gt_trans):
                 if dim == 2:
                     ax.plot([e_pos[0], r_pos[0]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
                 else:
@@ -145,59 +145,58 @@ def draw_trajectory(
 def draw_xyz_pose(ax: list[Axes], poses, label=None):
     if label is not None:
         ax[0].plot(poses[:, 0], label=label)
-        ax[1].plot(poses[:, 1], label=label)
-        ax[2].plot(poses[:, 2], label=label)
     else:
         ax[0].plot(poses[:, 0])
-        ax[1].plot(poses[:, 1])
-        ax[2].plot(poses[:, 2])
+    ax[1].plot(poses[:, 1])
+    ax[2].plot(poses[:, 2])
 
 
-def draw_trans_diff(e_poses, r_poses, save_src=None):
+def draw_trans_diff(est_poses, gt_poses, save_src=None):
     fig, ax = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    draw_xyz_pose(ax, e_poses, label="Estimated")
-    draw_xyz_pose(ax, r_poses, label="Ground truth")
+    est_trans = est_poses[:, :3, 3]
+    gt_trans = gt_poses[:, :3, 3]
+    draw_xyz_pose(ax, est_trans, label="Estimated")
+    draw_xyz_pose(ax, gt_trans, label="Ground truth")
+    ax[2].set_xlabel("Frame index")
     ax[0].set_ylabel("X [m]")
     ax[1].set_ylabel("Y [m]")
     ax[2].set_ylabel("Z [m]")
     ax[0].legend()
-    ax[1].legend()
-    ax[2].legend()
     plt.show()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0.1) if save_src else None
 
 
-def draw_rpy_pose(ax: list[Axes], eulers, label=None):
+def draw_rpy_pose(ax: list[Axes], rpy, label=None):
     if label is not None:
-        ax[0].plot(eulers[:, 0], label=label)
-        ax[1].plot(eulers[:, 1], label=label)
-        ax[2].plot(eulers[:, 2], label=label)
+        ax[0].plot(rpy[:, 0], label=label)
     else:
-        ax[0].plot(eulers[:, 0])
-        ax[1].plot(eulers[:, 1])
-        ax[2].plot(eulers[:, 2])
+        ax[0].plot(rpy[:, 0])
+    ax[1].plot(rpy[:, 1])
+    ax[2].plot(rpy[:, 2])
 
 
-def draw_euler_diff(e_quats, r_quats, save_src):
-    e_eulers = []
-    r_eulers = []
+def draw_rpy_diff(e_poses, r_poses, save_src):
+    est_rpy = []
+    gt_rpy = []
     conv_str = "ZXY"
-    for eq, riq in zip(e_quats, r_quats):
+    for est_pose, gt_pose in zip(e_poses, r_poses):
+        est_rot = est_pose[:3, :3]
+        gt_rot = gt_pose[:3, :3]
+
         # @todo Check rover coordinate (Which is X+ direction?)
-        e_eulers.append(R.from_quat(eq).as_euler(conv_str, degrees=True))
-        r_eulers.append(R.from_quat(riq).as_euler(conv_str, degrees=True))
-    e_eulers = np.array(e_eulers)
-    r_eulers = np.array(r_eulers)
+        est_rpy.append(R.from_matrix(est_rot).as_euler(conv_str, degrees=True))
+        gt_rpy.append(R.from_matrix(gt_rot).as_euler(conv_str, degrees=True))
+    est_rpy = np.array(est_rpy)
+    gt_rpy = np.array(gt_rpy)
 
     fig, ax = plt.subplots(3, 1, figsize=(10, 10), sharex=True)
-    draw_rpy_pose(ax, e_eulers, label="Estimated")
-    draw_rpy_pose(ax, r_eulers, label="Ground truth")
+    draw_rpy_pose(ax, est_rpy, label="Estimated")
+    draw_rpy_pose(ax, gt_rpy, label="Ground truth")
+    ax[2].set_xlabel("Frame index")
     ax[0].set_ylabel("Roll [deg]")
     ax[1].set_ylabel("Pitch [deg]")
     ax[2].set_ylabel("Yaw [deg]")
     ax[0].legend()
-    ax[1].legend()
-    ax[2].legend()
     plt.show()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0.1) if save_src else None
 
@@ -218,6 +217,8 @@ def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0,
     xe = (rot @ xe).T[0]
     ye = (rot @ ye).T[0]
     ze = (rot @ ze).T[0]
+    if trans.shape == (3,):
+        trans = trans[:, np.newaxis]
     trans = trans.T[0]
     ax.quiver(trans[0], trans[1], trans[2], xe[0], xe[1], xe[2], color='r')
     ax.quiver(trans[0], trans[1], trans[2], ye[0], ye[1], ye[2], color='g')

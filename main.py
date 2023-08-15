@@ -15,19 +15,19 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     # Specify the range of images to use
-    # start = 0
-    # last = None
-    # step = 1
-    start = 2000
-    last = 4000
-    step = 7
+    start = 50
+    last = None
+    step = 3
+    # start = 2000
+    # last = 2500
+    # step = 7
 
     # Load datasets
-    # data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    # dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+    dataset = AkiDataset(data_dir, start=start, last=last, step=step)
 
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
-    dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
 
     save_dir = f"{data_dir}/vo_results/normal"
     if not os.path.exists(save_dir):
@@ -94,21 +94,23 @@ if __name__ == "__main__":
         use_disp=True
     )
 
-    estimated_poses, estimated_quats = vo.estimate_all_poses(init_pose, num_img)
+    est_poses = vo.estimate_all_poses(init_pose, num_img)
+    est_quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in est_poses])
+    est_trans = np.array([np.array(pose[0:3, 3]).T for pose in est_poses])
 
     vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
-    save_trajectory(f"{save_dir}/estimated_trajectory.txt", cap_timestamps, estimated_poses, estimated_quats)
-    save_trajectory(f"{save_dir}/gt_traj.txt", gt_timestamps, gt_poses, gt_quats, 'tum')
+    save_trajectory(f"{save_dir}/estimated_trajectory.txt", img_timestamps, est_trans, est_quats)
+    save_trajectory(f"{save_dir}/gt_traj.txt", gt_timestamps, gt_trans, gt_quats, 'tum')
     np.savez(
         f"{save_dir}/vo_result_poses.npz",
-        estimated_poses=estimated_poses, estimated_quats=estimated_quats,
-        real_poses=gt_poses, real_quats=gt_quats,
-        real_img_poses=cap_poses, real_img_quats=cap_quats,
+        estimated_poses=est_trans, estimated_quats=est_quats,
+        real_poses=gt_trans, real_quats=gt_quats,
+        real_img_poses=img_trans, real_img_quats=img_quats,
         start_idx=dataset.start, last_idx=dataset.last, step=dataset.step
     )
     draw_vo_poses(
-        estimated_poses, gt_poses, cap_poses,
-        # view=(-55, 145, -60),
-        # ylim=(0.0, 1.0)
+        est_poses, gt_poses, img_poses,
+        view=(-55, 145, -60),
+        ylim=(0.0, 1.0)
     )
