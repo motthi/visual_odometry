@@ -20,27 +20,6 @@ def create_save_directories(dir: str):
     os.makedirs(f"{dir}/matched_kpts/", exist_ok=True)
 
 
-def load_images(src: str = "./datasets", last_img_idx: int = 30) -> list[np.ndarray, np.ndarray]:
-    """Load images from a dataset.
-
-    Args:
-        src (str, optional): Dataset directory. Defaults to "./datasets".
-        img_num (int, optional): Last image index to be loaded. Defaults to 30.
-        step (int, optional): Image index step. Defaults to 1.
-
-    Returns:
-        list[np.ndarray, np.ndarray]: Left images and right images.
-    """
-    l_imgs = []
-    r_imgs = []
-    for i in range(0, last_img_idx):
-        l_img = cv2.imread(f"{src}/left/{i:04d}.png")
-        r_img = cv2.imread(f"{src}/right/{i:04d}.png")
-        l_imgs.append(l_img)
-        r_imgs.append(r_img)
-    return l_imgs, r_imgs
-
-
 def load_result_poses(src: str):
     data = np.load(src)
     est_poses = data['estimated_poses']
@@ -51,21 +30,22 @@ def load_result_poses(src: str):
     gt_quats = data['real_img_quats']
 
     est_ps, gt_all_ps, gt_ps = [], [], []
-    for est_p, e_q, gt_all_p, gt_all_q, gt_p, gt_q in zip(est_poses, est_quats, gt_all_poses, gt_all_quats, gt_poses, gt_quats):
-        rot_e = R.from_quat(e_q).as_matrix()
-        rot_g = R.from_quat(gt_all_q).as_matrix()
-        rot_gt = R.from_quat(gt_q).as_matrix()
-
-        T_est = form_transf(rot_e, est_p)
-        T_gt_all = form_transf(rot_g, gt_all_p)
-        T_gt = form_transf(rot_gt, gt_p)
-
+    for est_p, e_q in zip(est_poses, est_quats):
+        rot = R.from_quat(e_q).as_matrix()
+        T_est = form_transf(rot, est_p)
         est_ps.append(T_est)
-        gt_all_ps.append(T_gt_all)
-        gt_ps.append(T_gt)
-
     est_ps = np.array(est_ps)
+
+    for gt_all_p, gt_all_q in zip(gt_all_poses, gt_all_quats):
+        rot = R.from_quat(gt_all_q).as_matrix()
+        T_gt_all = form_transf(rot, gt_all_p)
+        gt_all_ps.append(T_gt_all)
     gt_all_ps = np.array(gt_all_ps)
+
+    for gt_p, gt_q in zip(gt_poses, gt_quats):
+        rot = R.from_quat(gt_q).as_matrix()
+        T_gt = form_transf(rot, gt_p)
+        gt_ps.append(T_gt)
     gt_ps = np.array(gt_ps)
     return est_ps, gt_all_ps, gt_ps
 
@@ -83,6 +63,7 @@ def form_transf(R, t):
     T[3, 3] = 1.0
     return T
 
+
 def trans_quats_to_poses(quats, trans):
     poses = []
     for t, q in zip(trans, quats):
@@ -90,6 +71,7 @@ def trans_quats_to_poses(quats, trans):
         pose = form_transf(rot, t)
         poses.append(pose)
     return np.array(poses)
+
 
 def save_trajectory(
     src: str,
@@ -107,3 +89,6 @@ def save_trajectory(
             f.write(f"{' '.join(map(str, T))}\n")
     else:
         raise ValueError(f"Unknown format: {fmt}")
+
+def trajectory_length(poses:np.ndarray):
+    return np.sum(np.linalg.norm(poses[1:, :3, 3] - poses[:-1, :3, 3], axis=1))

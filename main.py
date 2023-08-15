@@ -15,7 +15,7 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     # Specify the range of images to use
-    start = 50
+    start = 0
     last = None
     step = 3
     # start = 2000

@@ -1,6 +1,6 @@
 import os
 import numpy as np
-from vo.utils import load_result_poses
+from vo.utils import load_result_poses, trajectory_length
 from vo.analysis import *
 
 DATASET_DIR = os.environ['DATASET_DIR']
@@ -18,16 +18,21 @@ if __name__ == "__main__":
     step = result_data["step"]
     start = result_data["start_idx"]
     last = result_data["last_idx"]
-    e_pose, gt_img_pose = load_result_poses(f"{save_dir}/vo_result_poses.npz")
 
-    # Calcularate Absolute Trajectory Error
-    ate = calc_ate(gt_img_pose, e_pose)
-    rpe_trans = calc_rpe_trans(gt_img_pose, e_pose)
-    rpe_rot = calc_rpe_rot(gt_img_pose, e_pose)
-    print(f"ATE\t\t{ate} [m]")
-    print(f"RPE(trans)\t{rpe_trans} [m]")
-    print(f"RPE(rot)\t{rpe_rot*180.0/np.pi} [deg]")
+    est_poses, gt_poses, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
 
+    # Calcularate ATE and RPE
+    trj_len = trajectory_length(gt_img_poses)
+    ate = calc_ate(gt_img_poses, est_poses)
+    rpe_trans = calc_rpe_trans(gt_img_poses, est_poses)
+    rpe_rot = calc_rpe_rot(gt_img_poses, est_poses)
+    print(f"Trajectory length\t{trj_len:.3f} [m]")
+    print("Results")
+    print(f"\tATE\t\t{ate} [m]\t({ate/trj_len*100} [%])")
+    print(f"\tRPE(trans)\t{rpe_trans} [m]")
+    print(f"\tRPE(rot)\t{rpe_rot*180.0/np.pi} [deg]")
+
+    # Calculate processing time
     kpt_proc_time = 0.0
     stereo_proc_time = 0.0
     optmize_proc_time = 0.0
@@ -44,6 +49,7 @@ if __name__ == "__main__":
     optmize_proc_time = optmize_proc_time / (i + 1)
 
     print(f"Processing time")
+    print(f"  Total\t\t: {kpt_proc_time + stereo_proc_time + optmize_proc_time:.3f} [s]")
     print(f"  Keypoint\t: {kpt_proc_time:.3f} [s]")
     print(f"  Stereo\t: {stereo_proc_time:.3f} [s]")
     print(f"  Optimize\t: {optmize_proc_time:.3f} [s]")

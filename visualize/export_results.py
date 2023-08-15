@@ -37,7 +37,6 @@ if __name__ == "__main__":
     create_save_directories(save_dir)
     for i, idx in enumerate(tqdm(range(start, last - step, step))):
         img, _ = dataset.load_img(i)
-        # img = cv2.imread(dataset.l_img_srcs[i])
         data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
 
         # Disparities
@@ -53,7 +52,6 @@ if __name__ == "__main__":
         # Matchd keypoints
         if i == 0:
             continue
-        # prev_img = cv2.imread(dataset.l_img_srcs[i])
         prev_img, _ = dataset.load_img(i - 1)
         if prev_img is not None:
             match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
