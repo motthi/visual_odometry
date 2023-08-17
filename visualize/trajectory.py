@@ -19,8 +19,10 @@ if __name__ == "__main__":
         dim = 3
 
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
     result_dir = f"{data_dir}/vo_results/normal"
+    print(f"Result directory: {result_dir}\n")
+
     est_poses, gt_poses, gt_img_poses, = load_result_poses(f"{result_dir}/vo_result_poses.npz")
     draw_vo_poses(
         est_poses, gt_poses, gt_img_poses,

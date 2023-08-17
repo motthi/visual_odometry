@@ -18,9 +18,11 @@ if __name__ == "__main__":
         dim = 3
 
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    save_dir = f"{data_dir}/vo_results/normal"
-    est_poses, gt_all_poses, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
+    result_dir = f"{data_dir}/vo_results/normal"
+    print(f"Result directory: {result_dir}\n")
+
+    est_poses, gt_all_poses, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
     draw_vo_poses_and_quats(
         est_poses, gt_all_poses, gt_img_poses,
         draw_data="all",
@@ -30,5 +32,5 @@ if __name__ == "__main__":
         # zlim=(0, 1),
         scale=0.8,
         step=5,
-        save_src=f"{save_dir}/trajectory_with_rpy.png",
+        save_src=f"{result_dir}/trajectory_with_rpy.png",
     )

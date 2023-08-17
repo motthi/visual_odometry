@@ -8,12 +8,14 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
     result_dir = f"{data_dir}/vo_results/normal"
+    print(f"Result directory: {result_dir}\n")
+
     est_poses, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
-    
-    est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler("ZXY", degrees=True)
-    gt_img_rpys = R.from_matrix(gt_img_poses[:, :3, :3]).as_euler("ZXY", degrees=True)
+
+    est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler("XYZ", degrees=True)
+    gt_img_rpys = R.from_matrix(gt_img_poses[:, :3, :3]).as_euler("XYZ", degrees=True)
     errors = est_rpys - gt_img_rpys
 
     idx = errors > 180
@@ -38,6 +40,5 @@ if __name__ == "__main__":
     ax[2].set_xlabel("Frame index")
     plt.show()
     fig.savefig(f"{result_dir}/absolute_rot_error.png", dpi=300, bbox_inches='tight', pad_inches=0.1)
-    
-    # draw_rpy_diff(est_poses, gt_img_poses, f"{result_dir}/rpy_diff.png")
 
+    # draw_rpy_diff(est_poses, gt_img_poses, f"{result_dir}/rpy_diff.png")

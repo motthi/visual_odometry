@@ -34,8 +34,14 @@ def draw_matched_kpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: l
         cv2.line(match_img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), (0, 255, 0), 2)
         cv2.circle(match_img, (int(curr_kpt.pt[0]), int(curr_kpt.pt[1])), 1, (0, 0, 255), 3)
         cv2.circle(match_img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), 1, (255, 0, 0), 3)
-    # matches = [cv2.DMatch(_queryIdx=int(m[0]), _trainIdx=int(m[1]), _imgIdx=int(m[2]), _distance=m[3]) for m in data['matches']]
-    # match_img = cv2.drawMatches(prev_img, prev_kpts, img, curr_kpts, matches, None, flags=2)
+    return match_img
+
+
+def draw_matched_kpts_two_imgs(prev_img: np.ndarray, curr_img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint], matches: list[cv2.DMatch]):
+    prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in prev_pts])
+    curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in curr_pts])
+    dmatches = tuple([cv2.DMatch(_imgIdx=int(match[0]), _queryIdx=int(match[1]), _trainIdx=int(match[2]), _distance=match[3]) for match in matches])
+    match_img = cv2.drawMatches(prev_img, prev_kpts, curr_img, curr_kpts, dmatches, None, flags=2)
     return match_img
 
 

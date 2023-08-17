@@ -71,7 +71,7 @@ if __name__ == "__main__":
     # Image masking
     img_mask = None
     img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
-    img_mask[-100:, :] = 0
+    # img_mask[300:, :] = 0
     # D = 50
     # img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
     # img_mask[: D, :] = 0
@@ -91,7 +91,7 @@ if __name__ == "__main__":
         detector, descriptor, tracker=tracker,
         estimator=estimator,
         img_mask=img_mask,
-        use_disp=True
+        # use_disp=True
     )
 
     est_poses = vo.estimate_all_poses(init_pose, num_img)

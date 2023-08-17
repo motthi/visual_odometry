@@ -9,6 +9,8 @@ if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
     # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     result_dir = f"{data_dir}/vo_results/normal"
+    print(f"Result directory: {result_dir}\n")
+
     est_poses, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
     est_trans = est_poses[:, :3, 3]
     gt_img_trans = gt_img_poses[:, :3, 3]

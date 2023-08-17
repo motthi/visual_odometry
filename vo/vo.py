@@ -452,7 +452,7 @@ class StereoVisualOdometry(VisualOdometry):
                 descs=self.left_descs[i],
                 disp=self.disparities[i],
                 translation=self.Ts[i],
-                matches=[[m.queryIdx, m.trainIdx, m.imgIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
+                matches=[[m.imgIdx, m.queryIdx, m.trainIdx, m.distance] for m in self.matches[i]] if self.matches[i] is not None else None,
                 matched_prev_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_prev_kpts[i]] if self.matched_prev_kpts[i] is not None else None,
                 matched_curr_kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in self.matched_curr_kpts[i]] if self.matched_curr_kpts[i] is not None else None,
             )
