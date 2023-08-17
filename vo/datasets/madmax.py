@@ -101,7 +101,7 @@ class MadmaxDataset(ImageDataset):
         #     lines = f.readlines()
         # for line in lines[14:]:
         #     data = line.split(",")
-        #     poses_data[f'{data[0]}'] = [float(data[3]), float(data[4]), float(data[5]), float(data[10]), float(data[11]), float(data[12]), float(data[9])]
+        #     poses[f'{data[0]}'] = [float(data[3]), float(data[4]), float(data[5]), float(data[10]), float(data[11]), float(data[12]), float(data[9])]
         #     ts.append(float(data[0]))
         with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
             lines = f.readlines()
@@ -109,7 +109,7 @@ class MadmaxDataset(ImageDataset):
             data = line.split(",")
             ts.append(float(data[0]))
             poses[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
-        ts  = np.array(ts, float)
+        ts = np.array(ts, float)
 
         timestamps = []
         trans = []
@@ -153,7 +153,7 @@ class MadmaxDataset(ImageDataset):
         e_img_ts = float(img_timestamp_re.search(e_img_scr).group(1)) * 1e-9
         start_idx = np.abs(timestamps - s_img_ts).argmin()
         end_idx = np.abs(timestamps - e_img_ts).argmin()
-        timestamps = timestamps[start_idx:end_idx]
-        trans = trans[start_idx:end_idx]
-        quats = quats[start_idx:end_idx]
+        timestamps = timestamps[start_idx:end_idx + 1]
+        trans = trans[start_idx:end_idx + 1]
+        quats = quats[start_idx:end_idx + 1]
         return timestamps, trans, quats
