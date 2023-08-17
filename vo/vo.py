@@ -5,14 +5,9 @@ import time
 import warnings
 import numpy as np
 from tqdm import tqdm
-from scipy.spatial.transform import Rotation as R
 from vo.method.monocular import *
 from vo.method.stereo import *
 from vo.tracker import KeyPointTracker
-
-# https://github.com/niconielsen32/ComputerVision/tree/a3caf60f0134704958879b9c7e3ef74090ca6579/VisualOdometry
-
-MAX_MATCH_PTS = 50
 
 
 class VisualOdometry():
