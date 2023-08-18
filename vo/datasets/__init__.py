@@ -1,6 +1,7 @@
 import cv2
 import os
 import numbers
+import json
 import numpy as np
 from tqdm import tqdm
 
@@ -68,3 +69,28 @@ class ImageDataset():
 
     def read_all_poses_quats(self):
         raise NotImplementedError
+
+    def save_info(self, src):
+        data = {
+            'start': self.start,
+            'last': self.last,
+            'step': self.step,
+            'l_img_srcs': self.l_img_srcs,
+            'r_img_srcs': self.r_img_srcs,
+            'camera_params': {
+                'lcam': {
+                    'intrinsic': self.lcam_params['intrinsic'].tolist(),
+                    'extrinsic': self.lcam_params['extrinsic'].tolist(),
+                    'projection': self.lcam_params['projection'].tolist(),
+                    'distortion': self.lcam_params['distortion'].tolist()
+                },
+                'rcam': {
+                    'intrinsic': self.rcam_params['intrinsic'].tolist(),
+                    'extrinsic': self.rcam_params['extrinsic'].tolist(),
+                    'projection': self.rcam_params['projection'].tolist(),
+                    'distortion': self.rcam_params['distortion'].tolist()
+                }
+            }
+        }
+        with open(f"{src}", 'w') as f:
+            json.dump(data, f, indent=4)

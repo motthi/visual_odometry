@@ -2,6 +2,7 @@ import cv2
 import numpy as np
 
 FLANN_INDEX_LSH = 6
+DMATCH_PT_DIST_THD = 150
 
 
 class KeyPointTracker(object):
@@ -19,7 +20,7 @@ def pickup_good_matches(kpts1, kpts2, matches) -> list[np.ndarray, np.ndarray, n
         # TODO: Temporal solution for mismatched keypoints
         pkpt = kpts1[matches[cnt].queryIdx]
         ckpt = kpts2[matches[cnt].trainIdx]
-        if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > 50:
+        if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > DMATCH_PT_DIST_THD:
             continue
         good_pkpts.append(kpts1[matches[cnt].queryIdx])
         good_ckpts.append(kpts2[matches[cnt].trainIdx])

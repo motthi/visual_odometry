@@ -1,4 +1,5 @@
 import os
+import json
 import numpy as np
 from vo.utils import load_result_poses, trajectory_length
 from vo.analysis import *
@@ -6,8 +7,8 @@ from vo.analysis import *
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
+    # data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
     save_dir = f"{data_dir}/vo_results/normal"
 
     if not os.path.exists(f"{data_dir}"):
@@ -15,6 +16,7 @@ if __name__ == "__main__":
         exit()
 
     result_data = np.load(f"{save_dir}/vo_result_poses.npz", allow_pickle=True)
+    dataset_data = json.load(open(f"{save_dir}/dataset_info.json", "r"))
     step = result_data["step"]
     start = result_data["start_idx"]
     last = result_data["last_idx"]
@@ -53,3 +55,13 @@ if __name__ == "__main__":
     print(f"  Keypoint\t: {kpt_proc_time:.5f} [s]")
     print(f"  Stereo\t: {stereo_proc_time:.5f} [s]")
     print(f"  Optimize\t: {optmize_proc_time:.5f} [s]")
+
+    print("\nFailure information")
+    for i, idx in enumerate(range(start, last - step, step)):
+        if i == 0:
+            continue
+        data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        if data['translation'].shape != (4, 4):
+            print(f"Index {i} : Failed")
+            print(f"\t{dataset_data['l_img_srcs'][i-1]}")
+            print(f"\t{dataset_data['l_img_srcs'][i]}")

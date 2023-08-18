@@ -99,6 +99,7 @@ if __name__ == "__main__":
     est_trans = np.array([np.array(pose[0:3, 3]).T for pose in est_poses])
 
     vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
+    dataset.save_info(f"{save_dir}/dataset_info.json")
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
     save_trajectory(f"{save_dir}/estimated_trajectory.txt", img_timestamps, est_trans, est_quats)
     save_trajectory(f"{save_dir}/gt_traj.txt", gt_timestamps, gt_trans, gt_quats, 'tum')
