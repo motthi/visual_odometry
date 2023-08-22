@@ -1,4 +1,3 @@
-import cv2
 import os
 import numpy as np
 from scipy.spatial.transform import Rotation as R
@@ -6,10 +5,10 @@ from vo.vo import *
 from vo.draw import draw_vo_poses
 from vo.detector import *
 from vo.tracker import *
-from vo.utils import *
+from vo.utils import trans_quats_to_poses, save_trajectory
 from vo.method.stereo import *
-from vo.datasets.aki import *
-from vo.datasets.madmax import *
+from vo.datasets.aki import AkiDataset
+from vo.datasets.madmax import MadmaxDataset
 
 DATASET_DIR = os.environ['DATASET_DIR']
 

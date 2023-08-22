@@ -2,7 +2,6 @@ import cv2
 import yaml
 import numpy as np
 from scipy.spatial.transform import Rotation as R
-from vo.vo import *
 
 
 def load_init_pose(src: str):

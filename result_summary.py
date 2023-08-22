@@ -2,7 +2,7 @@ import os
 import json
 import numpy as np
 from vo.utils import load_result_poses, trajectory_length
-from vo.analysis import *
+from vo.analysis import calc_ate, calc_rpe_rot, calc_rpe_trans
 
 DATASET_DIR = os.environ['DATASET_DIR']
 

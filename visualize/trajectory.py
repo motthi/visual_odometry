@@ -1,5 +1,4 @@
 import sys
-sys.path.append("../")
 import os
 import warnings
 from vo.draw import draw_vo_poses, draw_vo_poses_and_quats

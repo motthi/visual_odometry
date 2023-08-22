@@ -1,6 +1,6 @@
 import os
-from vo.datasets.aki import *
-from vo.datasets.madmax import *
+from vo.datasets.aki import AkiDataset
+from vo.datasets.madmax import MadmaxDataset
 from vo.utils import save_trajectory
 
 DATASET_DIR = os.environ['DATASET_DIR']

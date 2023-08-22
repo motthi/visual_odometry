@@ -1,12 +1,10 @@
-import sys
-sys.path.append("../")
 import cv2
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from vo.datasets.aki import *
-from vo.datasets.madmax import *
-from vo.draw import *
+from vo.datasets.aki import AkiDataset
+from vo.datasets.madmax import MadmaxDataset
+from vo.draw import draw_disparties, draw_detected_kpts, draw_matched_kpts
 from vo.utils import create_save_directories
 from tqdm import tqdm
 

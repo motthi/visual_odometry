@@ -1,4 +1,3 @@
-from __future__ import annotations
 import numpy as np
 
 def read_poses_quats(src: str):
