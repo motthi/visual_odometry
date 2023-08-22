@@ -54,6 +54,7 @@ if __name__ == "__main__":
             continue
         prev_img, _ = dataset.load_img(i - 1)
         if prev_img is not None:
-            match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
+            # draw_matched_kpts_coloring_distance(img, data["matched_prev_kpts"], data["matched_curr_kpts"], data["matches"], src=f"{result_dir}/matched_kpts/{idx:04d}.png")
             # match_img = draw_matched_kpts_two_imgs(prev_img, img, data["matched_prev_kpts"], data["matched_curr_kpts"], data["matches"])
+            match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
             cv2.imwrite(f"{result_dir}/matched_kpts/{idx:04d}.png", match_img)

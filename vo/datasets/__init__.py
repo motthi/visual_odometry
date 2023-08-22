@@ -81,16 +81,17 @@ class ImageDataset():
                 'lcam': {
                     'intrinsic': self.lcam_params['intrinsic'].tolist(),
                     'extrinsic': self.lcam_params['extrinsic'].tolist(),
-                    'projection': self.lcam_params['projection'].tolist(),
-                    'distortion': self.lcam_params['distortion'].tolist()
+                    'projection': self.lcam_params['projection'].tolist()
                 },
                 'rcam': {
                     'intrinsic': self.rcam_params['intrinsic'].tolist(),
                     'extrinsic': self.rcam_params['extrinsic'].tolist(),
-                    'projection': self.rcam_params['projection'].tolist(),
-                    'distortion': self.rcam_params['distortion'].tolist()
+                    'projection': self.rcam_params['projection'].tolist()
                 }
             }
         }
+        if 'distortion' in self.lcam_params.keys() and 'distortion' in self.rcam_params.keys():
+            data['camera_params']['lcam']['distortion'] = self.lcam_params['distortion'].tolist()
+            data['camera_params']['rcam']['distortion'] = self.rcam_params['distortion'].tolist()
         with open(f"{src}", 'w') as f:
             json.dump(data, f, indent=4)

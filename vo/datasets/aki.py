@@ -66,7 +66,7 @@ class AkiDataset(ImageDataset):
         with open(f"{self.dataset_dir}/gt_camera_traj.csv") as f:
             lines = f.readlines()
         start_ts = float(lines[self.start].split(" ")[0])
-        end_ts = float(lines[self.last-1].split(" ")[0])
+        end_ts = float(lines[self.last - 1].split(" ")[0])
 
         with open(f"{self.dataset_dir}/gt_all_traj.csv") as f:
             lines = f.readlines()

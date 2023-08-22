@@ -40,6 +40,7 @@ def draw_matched_kpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: l
         cv2.circle(match_img, (int(prev_kpt.pt[0]), int(prev_kpt.pt[1])), 1, (255, 0, 0), 3)
     return match_img
 
+
 def draw_matched_kpts_coloring_distance(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint], matches: list[cv2.DMatch], cmap: str = "jet", src: str = None):
     prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in prev_pts])
     curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in curr_pts])
@@ -59,7 +60,7 @@ def draw_matched_kpts_coloring_distance(img: np.ndarray, prev_pts: list[cv2.KeyP
         # cv2.circle(match_img, (int(x2), int(y2)), 1, (255, 0, 0), 1)
 
     fig, ax = plt.subplots()
-    ax.imshow(match_img)
+    ax.imshow(cv2.cvtColor(match_img, cv2.COLOR_BGR2RGB))
     ax.axis("off")
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
