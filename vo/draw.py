@@ -156,8 +156,8 @@ def draw_trajectory(
     draw_data: str = "all"
 ):
     X = 0
-    Y = 1
-    Z = 2
+    Y = 2
+    Z = 1
     e_trans = est_poses[:, :3, 3]
     gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
     gt_all_trans = gt_all_poses[:, :3, 3] if gt_all_poses is not None else None
@@ -257,6 +257,9 @@ def set_lims(ax: Axes, xlim: tuple[float, float] = None, ylim: tuple[float, floa
 
 
 def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T, scale=1.0):
+    X = 0
+    Y = 2
+    Z = 1
     xe = scale * np.array([[1, 0, 0]]).T
     ye = scale * np.array([[0, 1, 0]]).T
     ze = scale * np.array([[0, 0, 1]]).T
@@ -266,9 +269,9 @@ def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0,
     if trans.shape == (3,):
         trans = trans[:, np.newaxis]
     trans = trans.T[0]
-    ax.quiver(trans[0], trans[1], trans[2], xe[0], xe[1], xe[2], color='r')
-    ax.quiver(trans[0], trans[1], trans[2], ye[0], ye[1], ye[2], color='g')
-    ax.quiver(trans[0], trans[1], trans[2], ze[0], ze[1], ze[2], color='b')
+    ax.quiver(trans[X], trans[Y], trans[Z], xe[X], xe[Y], xe[Z], color='r')
+    ax.quiver(trans[X], trans[Y], trans[Z], ye[X], ye[Y], ye[Z], color='g')
+    ax.quiver(trans[X], trans[Y], trans[Z], ze[X], ze[Y], ze[Z], color='b')
 
 
 def draw_system_reference_frames(frames: list[np.ndarray], frame_names: list[str] = None, scale=1.0, view=None):
