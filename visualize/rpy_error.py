@@ -14,8 +14,9 @@ if __name__ == "__main__":
 
     est_poses, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
 
-    est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler("XYZ", degrees=True)
-    gt_img_rpys = R.from_matrix(gt_img_poses[:, :3, :3]).as_euler("XYZ", degrees=True)
+    seq = 'ZYX'  # for AKI: 'XYZ', for MADMAX: 'ZYX'
+    est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler(seq, degrees=True)
+    gt_img_rpys = R.from_matrix(gt_img_poses[:, :3, :3]).as_euler(seq, degrees=True)
     errors = est_rpys - gt_img_rpys
 
     idx = errors > 180

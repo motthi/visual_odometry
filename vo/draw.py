@@ -111,6 +111,7 @@ def draw_vo_poses(
         ax.set_zlabel("z")
         ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
+    fig.tight_layout()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
     plt.show()
 
@@ -141,6 +142,7 @@ def draw_vo_poses_and_quats(
     ax.set_aspect('equal')
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
+    fig.tight_layout()
     fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
     plt.show()
 
@@ -153,34 +155,37 @@ def draw_trajectory(
     dim: int = 3,
     draw_data: str = "all"
 ):
+    X = 0
+    Y = 1
+    Z = 2
     e_trans = est_poses[:, :3, 3]
     gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
     gt_all_trans = gt_all_poses[:, :3, 3] if gt_all_poses is not None else None
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(gt_all_trans[0][0], gt_all_trans[0][2], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][0], gt_all_trans[-1][2], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, 0], gt_all_trans[:, 2], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][X], gt_all_trans[0][Y], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][X], gt_all_trans[-1][Y], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, X], gt_all_trans[:, Y], c='#ff7f0e', label='Truth')
         else:
-            ax.plot(gt_all_trans[0][0], gt_all_trans[0][1], gt_all_trans[0][2], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][0], gt_all_trans[-1][1], gt_all_trans[-1][2], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, 0], gt_all_trans[:, 1], gt_all_trans[:, 2], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][X], gt_all_trans[0][Y], gt_all_trans[0][Z], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][X], gt_all_trans[-1][Y], gt_all_trans[-1][Z], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, X], gt_all_trans[:, Y], gt_all_trans[:, Z], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(e_trans[:, 0], e_trans[:, 2], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, X], e_trans[:, Y], '-o', label='Estimated', markersize=2)
         else:
-            ax.plot(e_trans[:, 0], e_trans[:, 1], e_trans[:, 2], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, X], e_trans[:, Y], e_trans[:, Z], '-o', label='Estimated', markersize=2)
     if draw_data == "all":
         if gt_poses is not None:
             if dim == 2:
-                ax.plot(gt_trans[:, 0], gt_trans[:, 2], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_trans[:, X], gt_trans[:, Y], 'o', c='#ff7f0e', markersize=2)
             else:
-                ax.plot(gt_trans[:, 0], gt_trans[:, 1], gt_trans[:, 2], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_trans[:, X], gt_trans[:, Y], gt_trans[:, Z], 'o', c='#ff7f0e', markersize=2)
             for e_pos, r_pos in zip(e_trans, gt_trans):
                 if dim == 2:
-                    ax.plot([e_pos[0], r_pos[0]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
+                    ax.plot([e_pos[X], r_pos[X]], [e_pos[Y], r_pos[Y]], c='r', linewidth=0.3)
                 else:
-                    ax.plot([e_pos[0], r_pos[0]], [e_pos[1], r_pos[1]], [e_pos[2], r_pos[2]], c='r', linewidth=0.3)
+                    ax.plot([e_pos[X], r_pos[X]], [e_pos[Y], r_pos[Y]], [e_pos[Z], r_pos[Z]], c='r', linewidth=0.3)
 
 
 def draw_xyz_pose(ax: list[Axes], poses, label=None):

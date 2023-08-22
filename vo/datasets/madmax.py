@@ -75,8 +75,6 @@ class MadmaxDataset(ImageDataset):
         # from vo.draw import draw_system_reference_frames
         # draw_system_reference_frames([E_l, E_r], ["lcam", "rcam"], scale=0.2)
         # exit()
-        # P_l = np.array(lcam_info['P']).reshape(3, 4)
-        # P_r = np.array(rcam_info['P']).reshape(3, 4)
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
 
