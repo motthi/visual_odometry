@@ -9,6 +9,10 @@ from matplotlib.colors import Normalize, LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.spatial.transform import Rotation as R
 
+x_idx = 0
+y_idx = 1
+z_idx = 2
+
 
 def draw_disparties(disp) -> Figure:
     fig, ax = plt.subplots()
@@ -165,37 +169,34 @@ def draw_trajectory(
     dim: int = 3,
     draw_data: str = "all"
 ):
-    X = 0
-    Y = 2
-    Z = 1
     e_trans = est_poses[:, :3, 3]
     gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
     gt_all_trans = gt_all_poses[:, :3, 3] if gt_all_poses is not None else None
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(gt_all_trans[0][X], gt_all_trans[0][Y], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][X], gt_all_trans[-1][Y], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, X], gt_all_trans[:, Y], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][x_idx], gt_all_trans[0][y_idx], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][x_idx], gt_all_trans[-1][y_idx], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], c='#ff7f0e', label='Truth')
         else:
-            ax.plot(gt_all_trans[0][X], gt_all_trans[0][Y], gt_all_trans[0][Z], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][X], gt_all_trans[-1][Y], gt_all_trans[-1][Z], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, X], gt_all_trans[:, Y], gt_all_trans[:, Z], c='#ff7f0e', label='Truth')
+            ax.plot(gt_all_trans[0][x_idx], gt_all_trans[0][y_idx], gt_all_trans[0][z_idx], 'o', c="r", label="Start")
+            ax.plot(gt_all_trans[-1][x_idx], gt_all_trans[-1][y_idx], gt_all_trans[-1][z_idx], 'x', c="r", label="End")
+            ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], gt_all_trans[:, z_idx], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(e_trans[:, X], e_trans[:, Y], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label='Estimated', markersize=2)
         else:
-            ax.plot(e_trans[:, X], e_trans[:, Y], e_trans[:, Z], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], e_trans[:, z_idx], '-o', label='Estimated', markersize=2)
     if draw_data == "all":
         if gt_poses is not None:
             if dim == 2:
-                ax.plot(gt_trans[:, X], gt_trans[:, Y], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], 'o', c='#ff7f0e', markersize=2)
             else:
-                ax.plot(gt_trans[:, X], gt_trans[:, Y], gt_trans[:, Z], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], gt_trans[:, z_idx], 'o', c='#ff7f0e', markersize=2)
             for e_pos, r_pos in zip(e_trans, gt_trans):
                 if dim == 2:
-                    ax.plot([e_pos[X], r_pos[X]], [e_pos[Y], r_pos[Y]], c='r', linewidth=0.3)
+                    ax.plot([e_pos[x_idx], r_pos[x_idx]], [e_pos[y_idx], r_pos[y_idx]], c='r', linewidth=0.3)
                 else:
-                    ax.plot([e_pos[X], r_pos[X]], [e_pos[Y], r_pos[Y]], [e_pos[Z], r_pos[Z]], c='r', linewidth=0.3)
+                    ax.plot([e_pos[x_idx], r_pos[x_idx]], [e_pos[y_idx], r_pos[y_idx]], [e_pos[z_idx], r_pos[z_idx]], c='r', linewidth=0.3)
 
 
 def draw_xyz_pose(ax: list[Axes], poses, label=None):
@@ -267,9 +268,6 @@ def set_lims(ax: Axes, xlim: tuple[float, float] = None, ylim: tuple[float, floa
 
 
 def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0, 0, 0]]).T, scale=1.0):
-    X = 0
-    Y = 2
-    Z = 1
     xe = scale * np.array([[1, 0, 0]]).T
     ye = scale * np.array([[0, 1, 0]]).T
     ze = scale * np.array([[0, 0, 1]]).T
@@ -279,9 +277,9 @@ def draw_coordinate(ax: Axes, rot: np.ndarray, trans: np.ndarray = np.array([[0,
     if trans.shape == (3,):
         trans = trans[:, np.newaxis]
     trans = trans.T[0]
-    ax.quiver(trans[X], trans[Y], trans[Z], xe[X], xe[Y], xe[Z], color='r')
-    ax.quiver(trans[X], trans[Y], trans[Z], ye[X], ye[Y], ye[Z], color='g')
-    ax.quiver(trans[X], trans[Y], trans[Z], ze[X], ze[Y], ze[Z], color='b')
+    ax.quiver(trans[x_idx], trans[y_idx], trans[z_idx], xe[x_idx], xe[y_idx], xe[z_idx], color='r')
+    ax.quiver(trans[x_idx], trans[y_idx], trans[z_idx], ye[x_idx], ye[y_idx], ye[z_idx], color='g')
+    ax.quiver(trans[x_idx], trans[y_idx], trans[z_idx], ze[x_idx], ze[y_idx], ze[z_idx], color='b')
 
 
 def draw_system_reference_frames(frames: list[np.ndarray], frame_names: list[str] = None, scale=1.0, view=None):

@@ -243,7 +243,7 @@ class SvdBasedEstimator(StereoVoEstimator):
         return R
 
     def save_results(self, *args, **kwargs):
-        print("No results to save")
+        print("SvdBasedEstimator : No results to save")
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
