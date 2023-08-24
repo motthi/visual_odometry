@@ -30,6 +30,7 @@ class ImageDataset():
         self.dataset_dir = dataset_dir
         if last is not None and isinstance(last, numbers.Integral) and start > last:
             raise ValueError(f'The start index must be larger than the last index, start: {start}, last: {last}')
+        self.name = "None"
         self.start = start
         self.last = last
         self.step = step

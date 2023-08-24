@@ -22,6 +22,7 @@ class MadmaxDataset(ImageDataset):
             self.last = len(self.l_img_srcs)
         self.l_img_srcs = self.l_img_srcs[start:last:step]
         self.r_img_srcs = self.r_img_srcs[start:last:step]
+        self.name = "MADMAX"
 
     def camera_params(self) -> list[dict]:
         with open(f"{self.dataset_dir}/../calibration/camera_rect_left_info.txt") as f:
@@ -119,7 +120,7 @@ class MadmaxDataset(ImageDataset):
             timestamps.append(img_timestamp)
             trans.append(pose[:3])
             quats.append(pose[3:])
-        timestamps = np.array(timestamps, dtype=np.float32)
+        timestamps = np.array(timestamps, dtype=np.float64)
         trans = np.array(trans, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
         return timestamps, trans, quats

@@ -19,6 +19,7 @@ class AkiDataset(ImageDataset):
             self.last = len(self.l_img_srcs)
         self.l_img_srcs = self.l_img_srcs[start:last:step]
         self.r_img_srcs = self.r_img_srcs[start:last:step]
+        self.name = "AKI"
 
     def camera_params(self) -> list[dict]:
         with open(f"{self.dataset_dir}/camera_params.json") as f:
