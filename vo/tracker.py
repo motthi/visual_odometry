@@ -2,15 +2,18 @@ import cv2
 import numpy as np
 
 FLANN_INDEX_LSH = 6
-DMATCH_PT_DIST_THD = 150
+DMATCH_PT_DIST_THD = 50
 
 
 class KeyPointTracker(object):
+    def __init__(self, max_pt_dist=DMATCH_PT_DIST_THD):
+        self.max_pt_dist = max_pt_dist
+
     def track(self) -> list[np.ndarray, np.ndarray, np.ndarray]:
         raise NotImplementedError
 
 
-def pickup_good_matches(kpts1, kpts2, matches) -> list[np.ndarray, np.ndarray, np.ndarray]:
+def pickup_good_matches(kpts1, kpts2, matches, max_pts_dist) -> list[np.ndarray, np.ndarray, np.ndarray]:
     matches = sorted(matches, key=lambda x: x.distance)
 
     good_pkpts, good_ckpts, good_dmaches = [], [], []
@@ -20,7 +23,7 @@ def pickup_good_matches(kpts1, kpts2, matches) -> list[np.ndarray, np.ndarray, n
         # TODO: Temporal solution for mismatched keypoints
         pkpt = kpts1[matches[cnt].queryIdx]
         ckpt = kpts2[matches[cnt].trainIdx]
-        if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > DMATCH_PT_DIST_THD:
+        if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > max_pts_dist:
             continue
         good_pkpts.append(kpts1[matches[cnt].queryIdx])
         good_ckpts.append(kpts2[matches[cnt].trainIdx])
@@ -29,7 +32,8 @@ def pickup_good_matches(kpts1, kpts2, matches) -> list[np.ndarray, np.ndarray, n
 
 
 class BruteForceTracker(KeyPointTracker):
-    def __init__(self, norm_type=cv2.NORM_HAMMING, cross_check=True):
+    def __init__(self, max_dist=DMATCH_PT_DIST_THD, norm_type=cv2.NORM_HAMMING, cross_check=True):
+        super().__init__(max_dist)
         self.bf = cv2.BFMatcher(norm_type, crossCheck=cross_check)
 
     def track(self, **kwargs) -> list[np.ndarray, np.ndarray, np.ndarray]:
@@ -40,7 +44,7 @@ class BruteForceTracker(KeyPointTracker):
 
         matches = self.bf.match(prev_descs, curr_descs)
 
-        masked_prev_kpts, masked_curr_kpts, masked_dmatches = pickup_good_matches(prev_kpts, curr_kpts, matches)
+        masked_prev_kpts, masked_curr_kpts, masked_dmatches = pickup_good_matches(prev_kpts, curr_kpts, matches, self.max_pt_dist)
         return masked_prev_kpts, masked_curr_kpts, masked_dmatches
 
 

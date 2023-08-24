@@ -57,7 +57,8 @@ if __name__ == "__main__":
     # descriptor = cv2.xfeatures2d.SURF_create()
 
     # Tracker
-    tracker = BruteForceTracker(cv2.NORM_HAMMING, cross_check=True)
+    max_pts_dist = 200
+    tracker = BruteForceTracker(max_pts_dist, cv2.NORM_HAMMING, cross_check=True)
     # tracker = FlannTracker()
     # tracker = OpticalFlowTracker(win_size=(100, 100))
 
