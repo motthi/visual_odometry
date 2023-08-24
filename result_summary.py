@@ -21,7 +21,8 @@ if __name__ == "__main__":
     start = result_data["start_idx"]
     last = result_data["last_idx"]
 
-    est_poses, gt_poses, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
+    _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
+    _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/aligned_result_poses.npz")
 
     # Calcularate ATE and RPE
     trj_len = trajectory_length(gt_img_poses)

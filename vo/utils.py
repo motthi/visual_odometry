@@ -57,7 +57,7 @@ def quaternion_mean(quats: np.ndarray):
     return v[:, np.argmax(w)]
 
 
-def form_transf(R, t):
+def form_transf(R: np.ndarray, t: np.ndarray) -> np.ndarray:
     T = np.eye(4, dtype=np.float64)
     T[:3, :3] = R
     T[:3, 3] = t
@@ -65,7 +65,7 @@ def form_transf(R, t):
     return T
 
 
-def trans_quats_to_poses(quats, trans):
+def trans_quats_to_poses(quats: np.ndarray, trans: np.ndarray) -> np.ndarray:
     poses = []
     for t, q in zip(trans, quats):
         rot = R.from_quat(q).as_matrix()
@@ -74,22 +74,38 @@ def trans_quats_to_poses(quats, trans):
     return np.array(poses)
 
 
+def poses_to_trans_quats(poses: np.ndarray) -> np.ndarray:
+    trans = []
+    quats = []
+    for pose in poses:
+        tran = pose[:3, 3]
+        rot = pose[:3, :3]
+        quat = R.from_matrix(rot).as_quat()
+        trans.append(tran)
+        quats.append(quat)
+    trans = np.array(trans)
+    quats = np.array(quats)
+    return trans, quats
+
+
 def save_trajectory(
     src: str,
     timestamps: np.ndarray, poses: np.ndarray, quats: np.ndarray,
     fmt: str = 'tum'
-):
+) -> None:
     if fmt == 'tum':
         with open(src, 'w') as f:
             for ts, p, q in zip(timestamps, poses, quats):
                 f.write(f"{ts:f} {p[0]} {p[1]} {p[2]} {q[0]} {q[1]} {q[2]} {q[3]}\n")
     elif fmt == 'kitti':
-        for pose, quat in zip(poses, quats):
-            T = form_transf(R.from_quat(quat).as_matrix(), pose)
-            T = T.flatten()[:12]
-            f.write(f"{' '.join(map(str, T))}\n")
+        with open(src, 'w') as f:
+            for pose, quat in zip(poses, quats):
+                T = form_transf(R.from_quat(quat).as_matrix(), pose)
+                T = T.flatten()[:12]
+                f.write(f"{' '.join(map(str, T))}\n")
     else:
         raise ValueError(f"Unknown format: {fmt}")
 
-def trajectory_length(poses:np.ndarray):
+
+def trajectory_length(poses: np.ndarray) -> float:
     return np.sum(np.linalg.norm(poses[1:, :3, 3] - poses[:-1, :3, 3], axis=1))

@@ -12,7 +12,8 @@ if __name__ == "__main__":
     result_dir = f"{data_dir}/vo_results/normal"
     print(f"Result directory: {result_dir}\n")
 
-    est_poses, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/aligned_result_poses.npz")
 
     seq = 'ZYX'  # for AKI: 'XYZ', for MADMAX: 'ZYX'
     est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler(seq, degrees=True)

@@ -11,7 +11,8 @@ if __name__ == "__main__":
     result_dir = f"{data_dir}/vo_results/normal"
     print(f"Result directory: {result_dir}\n")
 
-    est_poses, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/aligned_result_poses.npz")
     est_trans = est_poses[:, :3, 3]
     gt_img_trans = gt_img_poses[:, :3, 3]
     trans_errors = est_trans - gt_img_trans
