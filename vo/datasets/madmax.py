@@ -58,24 +58,19 @@ class MadmaxDataset(ImageDataset):
         T_base2lcam = T_base2imu @ T_imu2lcam
         T_base2rcam = T_base2lcam @ T_lcam2rcam
 
-        T_base2lcam = np.linalg.inv(T_base2lcam)    # FIXME : Whhhhhhhhhy you need this!?
-        T_base2rcam = np.linalg.inv(T_base2rcam)
+        # T_base2lcam = np.linalg.inv(T_base2lcam)
+        # T_base2rcam = np.linalg.inv(T_base2rcam)
 
-        # print(np.array(lcam_info['K']).reshape(3, 3))
-        # print(np.array([lcam_info['P']]).reshape(3, 4))
         # K_l = np.array(lcam_info['K']).reshape(3, 3)
         # K_r = np.array(rcam_info['K']).reshape(3, 3)
         K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
         K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
         E_l = T_base2lcam[:3, :]
         E_r = T_base2rcam[:3, :]
-        P_l = K_l @ E_l
-        P_r = K_r @ E_r
-        # print(E_l)
-        # print(P_l)
-        # from vo.draw import draw_system_reference_frames
-        # draw_system_reference_frames([E_l, E_r], ["lcam", "rcam"], scale=0.2)
-        # exit()
+        # P_l = K_l @ E_l
+        # P_r = K_r @ E_r
+        P_l = np.array([lcam_info['P']]).reshape(3, 4)  # You need to align estimated trajectory if you use this
+        P_r = np.array([rcam_info['P']]).reshape(3, 4)
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
 
