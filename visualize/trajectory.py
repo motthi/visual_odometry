@@ -33,7 +33,8 @@ if __name__ == "__main__":
     print(f"\tDIM\t: {dim}")
     print(f"\tRPY\t: {draw_rpy}\n")
 
-    est_poses, gt_poses, gt_img_poses, = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, gt_poses, _, gt_img_poses, = load_result_poses(f"{result_dir}/vo_result_poses.npz")
+    _, est_poses, _, gt_poses, _, gt_img_poses, = load_result_poses(f"{result_dir}/aligned_result_poses.npz")
     if draw_rpy:
         draw_vo_poses_and_quats(
             est_poses, gt_poses, gt_img_poses,

@@ -20,10 +20,13 @@ def create_save_directories(dir: str):
 
 def load_result_poses(src: str):
     data = np.load(src)
+    est_timestamps = data['estimated_timestamps']
     est_poses = data['estimated_poses']
     est_quats = data['estimated_quats']
+    gt_all_timestamps = data['real_timestamps']
     gt_all_poses = data['real_poses']
     gt_all_quats = data['real_quats']
+    gt_timestamps = data['real_img_timestamps']
     gt_poses = data['real_img_poses']
     gt_quats = data['real_img_quats']
 
@@ -45,7 +48,7 @@ def load_result_poses(src: str):
         T_gt = form_transf(rot, gt_p)
         gt_ps.append(T_gt)
     gt_ps = np.array(gt_ps)
-    return est_ps, gt_all_ps, gt_ps
+    return est_timestamps, est_ps, gt_all_timestamps, gt_all_ps, gt_timestamps, gt_ps
 
 
 def quaternion_mean(quats: np.ndarray):
