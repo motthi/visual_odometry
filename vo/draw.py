@@ -5,7 +5,7 @@ from matplotlib.axes import Axes
 from matplotlib.figure import Figure
 from matplotlib.colors import rgb2hex
 from matplotlib.cm import ScalarMappable
-from matplotlib.colors import Normalize
+from matplotlib.colors import Normalize, LinearSegmentedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.spatial.transform import Rotation as R
 
@@ -41,32 +41,42 @@ def draw_matched_kpts(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: l
     return match_img
 
 
-def draw_matched_kpts_coloring_distance(img: np.ndarray, prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint], matches: list[cv2.DMatch], cmap: str = "jet", src: str = None):
+def draw_matched_kpts_coloring_distance(
+        img: np.ndarray,
+        prev_pts: list[cv2.KeyPoint], curr_pts: list[cv2.KeyPoint], matches: list[cv2.DMatch],
+        src: str = None,
+        dm_dist_range: list = None
+):
     prev_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in prev_pts])
     curr_kpts = tuple([cv2.KeyPoint(x=kpt[0], y=kpt[1], size=kpt[2], angle=kpt[3], response=kpt[4], octave=int(kpt[5]), class_id=int(kpt[6])) for kpt in curr_pts])
     dmatches = tuple([cv2.DMatch(_imgIdx=int(match[0]), _queryIdx=int(match[1]), _trainIdx=int(match[2]), _distance=match[3]) for match in matches])
 
     dists = [match.distance for match in dmatches]
-    cmap = plt.get_cmap(cmap)
-    norm = Normalize(vmin=min(dists), vmax=max(dists))
+    cmap = LinearSegmentedColormap.from_list("mycmap", ["blue", "cyan", "yellow", "red"], gamma=1.0)
+    if dm_dist_range is not None:
+        min_dist, max_dist = dm_dist_range
+    else:
+        min_dist, max_dist = min(dists), max(dists)
+    norm = Normalize(vmin=min_dist, vmax=max_dist)
     match_img = img.copy()
     for match in dmatches:
         x1, y1 = prev_kpts[match.queryIdx].pt
         x2, y2 = curr_kpts[match.trainIdx].pt
         dist = int(match.distance)
-        c = tuple(int(rgb2hex(cmap(norm(dist))).lstrip('#')[j:j + 2], 16) for j in (0, 2, 4))
+        c = rgb2hex(cmap(norm(dist)))
+        c = tuple([int(c[5:7], 16), int(c[3:5], 16), int(c[1:3], 16)])
         cv2.line(match_img, (int(x1), int(y1)), (int(x2), int(y2)), c, 2)
-        # cv2.circle(match_img, (int(x1), int(y1)), 1, (0, 0, 255), 1)
-        # cv2.circle(match_img, (int(x2), int(y2)), 1, (255, 0, 0), 1)
+        cv2.rectangle(match_img, (int(x1) - 1, int(y1) - 1), (int(x1) + 1, int(y1) + 1), (0, 100, 0), -1)
+        cv2.circle(match_img, (int(x2), int(y2)), 2, (255, 0, 255), -1)
 
     fig, ax = plt.subplots()
     ax.imshow(cv2.cvtColor(match_img, cv2.COLOR_BGR2RGB))
     ax.axis("off")
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
-    fig.colorbar(ScalarMappable(cmap=cmap, norm=norm), ax=ax, cax=cax)
+    fig.colorbar(ScalarMappable(cmap=cmap, norm=norm), cax=cax, shrink=0.8)  # shrinkを入れておくと画像として出力したときの高さが揃う
     if src is not None:
-        fig.savefig(src, dpi=300, bbox_inches='tight', pad_inches=0)
+        fig.savefig(src, dpi=300, bbox_inches='tight', pad_inches=0.1)
         plt.close()
     else:
         plt.show()
