@@ -20,15 +20,15 @@ def create_save_directories(dir: str):
 
 def load_result_poses(src: str):
     data = np.load(src)
-    est_timestamps = data['estimated_timestamps']
-    est_poses = data['estimated_poses']
-    est_quats = data['estimated_quats']
-    gt_all_timestamps = data['real_timestamps']
-    gt_all_poses = data['real_poses']
-    gt_all_quats = data['real_quats']
-    gt_timestamps = data['real_img_timestamps']
-    gt_poses = data['real_img_poses']
-    gt_quats = data['real_img_quats']
+    est_timestamps = data['est_timestamps']
+    est_poses = data['est_poses']
+    est_quats = data['est_quats']
+    gt_all_timestamps = data['gt_timestamps']
+    gt_all_poses = data['gt_poses']
+    gt_all_quats = data['gt_quats']
+    gt_timestamps = data['gt_img_timestamps']
+    gt_poses = data['gt_img_poses']
+    gt_quats = data['gt_img_quats']
 
     est_ps, gt_all_ps, gt_ps = [], [], []
     for est_p, e_q in zip(est_poses, est_quats):

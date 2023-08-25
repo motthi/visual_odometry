@@ -106,9 +106,9 @@ if __name__ == "__main__":
     save_trajectory(f"{save_dir}/gt_traj.txt", gt_timestamps, gt_trans, gt_quats, 'tum')
     np.savez(
         f"{save_dir}/vo_result_poses.npz",
-        estimated_timestamps=img_timestamps, estimated_poses=est_trans, estimated_quats=est_quats,
-        real_timestamps=gt_timestamps, real_poses=gt_trans, real_quats=gt_quats,
-        real_img_timestamps=img_timestamps, real_img_poses=img_trans, real_img_quats=img_quats,
+        est_timestamps=img_timestamps, est_poses=est_trans, est_quats=est_quats,
+        gt_timestamps=gt_timestamps, gt_poses=gt_trans, gt_quats=gt_quats,
+        gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats,
         start_idx=dataset.start, last_idx=dataset.last, step=dataset.step
     )
     draw_vo_poses(
