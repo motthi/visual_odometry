@@ -105,7 +105,7 @@ if __name__ == "__main__":
             est_poses, gt_poses, gt_img_poses,
             dim=dim,
             draw_data="all",
-            # save_src=f"{result_dir}/aligned_trajectory_with_rpy.png",
+            # save_src=f"{result_dir}/aligned_trajectory.png",
         )
     else:
         draw_vo_poses_and_quats(

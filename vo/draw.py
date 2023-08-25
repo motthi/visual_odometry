@@ -12,6 +12,7 @@ from scipy.spatial.transform import Rotation as R
 x_idx = 0
 y_idx = 1
 z_idx = 2
+axis_label = ["x [m]", "y [m]", "z [m]"]
 
 
 def draw_disparties(disp) -> Figure:
@@ -115,14 +116,15 @@ def draw_vo_poses(
     if dim == 2:
         ax.set_xlim(xlim) if xlim is not None else None
         ax.set_ylim(zlim) if zlim is not None else None
-        ax.set_xlabel("x")
-        ax.set_ylabel("z")
+        ax.set_xlabel(f"{axis_label[x_idx]}")
+        ax.set_ylabel(f"{axis_label[y_idx]}")
         ax.set_aspect('equal', adjustable='box')
+        ax.grid()
     else:
         set_lims(ax, xlim, ylim, zlim)
-        ax.set_xlabel("x")
-        ax.set_ylabel("y")
-        ax.set_zlabel("z")
+        ax.set_xlabel(f"{axis_label[x_idx]}")
+        ax.set_ylabel(f"{axis_label[y_idx]}")
+        ax.set_zlabel(f"{axis_label[z_idx]}")
         ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     fig.tight_layout()
@@ -149,9 +151,9 @@ def draw_vo_poses_and_quats(
     for e_pose, gt_pose in list(zip(est_poses, gt_poses))[::step]:
         draw_coordinate(ax, e_pose[:3, :3], e_pose[:3, 3], scale=scale)
         draw_coordinate(ax, gt_pose[:3, :3], gt_pose[:3, 3], scale=scale)
-    ax.set_xlabel("x")
-    ax.set_ylabel("y")
-    ax.set_zlabel("z")
+    ax.set_xlabel(f"{axis_label[x_idx]}")
+    ax.set_ylabel(f"{axis_label[y_idx]}")
+    ax.set_zlabel(f"{axis_label[z_idx]}")
     set_lims(ax, xlim, ylim, zlim)
     ax.set_aspect('equal')
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')

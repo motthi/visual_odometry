@@ -56,5 +56,5 @@ if __name__ == "__main__":
             # xlim=(-2.0, 2.0),
             # ylim=(0.0, 1.0),
             # zlim=(0, 1),
-            save_src=f"{result_dir}/trajectory.png",
+            save_src=f"{result_dir}/trajectory_{dim}d.png",
         )
