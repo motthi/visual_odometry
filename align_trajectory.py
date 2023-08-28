@@ -95,9 +95,9 @@ if __name__ == "__main__":
     save_trajectory(f"{result_dir}/aligned_est_traj.txt", est_ts, est_aligned_trans, est_quats)
     np.savez(
         f"{result_dir}/aligned_result_poses.npz",
-        estimated_timestamps=est_ts, estimated_poses=est_aligned_trans, estimated_quats=est_quats,
-        real_timestamps=gt_ts, real_poses=gt_trans, real_quats=gt_quats,
-        real_img_timestamps=gt_img_ts, real_img_poses=gt_img_trans, real_img_quats=gt_img_quats
+        est_timestamps=est_ts, est_poses=est_aligned_trans, est_quats=est_quats,
+        gt_timestamps=gt_ts, gt_poses=gt_trans, gt_quats=gt_quats,
+        gt_img_timestamps=gt_img_ts, gt_img_poses=gt_img_trans, gt_img_quats=gt_img_quats
     )
 
     if dim == 2:
