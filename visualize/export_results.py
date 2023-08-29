@@ -1,3 +1,4 @@
+import argparse
 import cv2
 import os
 import numpy as np
@@ -10,9 +11,10 @@ from tqdm import tqdm
 
 DATASET_DIR = os.environ['DATASET_DIR']
 
+
 def dmatch_dist_range(dir):
     dmatch_dists = []
-    for idx in range(start+step, last - step, step):
+    for idx in range(start + step, last - step, step):
         data = np.load(f"{dir}/npz/{idx:04d}.npz", allow_pickle=True)
         matches = data["matches"]
         dmatch_dist = [m[3] for m in matches]
@@ -21,8 +23,12 @@ def dmatch_dist_range(dir):
 
 
 if __name__ == "__main__":
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
+    parser = argparse.ArgumentParser(description='Export VO results.')
+    parser.add_argument('--dataset', help='Dataset name')
+    parser.add_argument('--subdir', help='Subdirectory path')
+    args = parser.parse_args()
+
+    data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
     result_dir = f"{data_dir}/vo_results/normal"
 
     if not os.path.exists(f"{data_dir}"):
@@ -34,8 +40,10 @@ if __name__ == "__main__":
     start = result_data["start_idx"]
     last = result_data["last_idx"]
 
-    # dataset = AkiDataset(data_dir, start=start, last=last, step=step)
-    dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    if args.dataset == "AKI":
+        dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+    elif args.dataset == "MADMAX":
+        dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
     dataset.camera_params()
 
     dm_dist_range = dmatch_dist_range(result_dir)

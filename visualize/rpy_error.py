@@ -1,3 +1,4 @@
+import argparse
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -7,13 +8,21 @@ from vo.utils import load_result_poses
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
+    parser = argparse.ArgumentParser(description='Calcurate RPY error.')
+    parser.add_argument('--dataset', help='Dataset name')
+    parser.add_argument('--subdir', help='Subdirectory path')
+    parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
+    args = parser.parse_args()
+
+    data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
     result_dir = f"{data_dir}/vo_results/normal"
     print(f"Result directory: {result_dir}\n")
 
-    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/vo_result_poses.npz")
-    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{result_dir}/aligned_result_poses.npz")
+    if args.aligned:
+        npz_src = f"{result_dir}/aligned_result_poses.npz"
+    else:
+        npz_src = f"{result_dir}/vo_result_poses.npz"
+    _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{npz_src}")
 
     seq = 'ZYX'  # for AKI: 'XYZ', for MADMAX: 'ZYX'
     est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler(seq, degrees=True)
