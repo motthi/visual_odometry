@@ -14,7 +14,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dataset_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    result_dir = f"{dataset_dir}/vo_results/normal"
+    result_dir = f"{dataset_dir}/vo_results/test"
 
     if args.dataset == "AKI":
         dataset = AkiDataset(dataset_dir)

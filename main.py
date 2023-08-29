@@ -158,4 +158,4 @@ if __name__ == "__main__":
 # data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
 # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
 
-# save_dir = f"{data_dir}/vo_results/normal"
+# save_dir = f"{data_dir}/vo_results/test"

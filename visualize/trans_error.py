@@ -8,13 +8,13 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Calcurate translation error.')
-    parser.add_argument('--dataset', help='Dataset name')
-    parser.add_argument('--subdir', help='Subdirectory path')
+    parser.add_argument('dataset', help='Dataset name')
+    parser.add_argument('subdir', help='Subdirectory path')
     parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
     args = parser.parse_args()
 
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    result_dir = f"{data_dir}/vo_results/normal"
+    result_dir = f"{data_dir}/vo_results/test"
     print(f"Result directory: {result_dir}\n")
 
     if args.aligned:

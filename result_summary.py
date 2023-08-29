@@ -9,8 +9,8 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Summarize VO results.')
-    parser.add_argument('--dataset', help='Dataset name')
-    parser.add_argument('--subdir', help='Subdirectory path')
+    parser.add_argument('dataset', help='Dataset name')
+    parser.add_argument('subdir', help='Subdirectory path')
     parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
     args = parser.parse_args()
 
@@ -18,7 +18,7 @@ if __name__ == "__main__":
         data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
     else:
         data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    save_dir = f"{data_dir}/vo_results/normal"
+    save_dir = f"{data_dir}/vo_results/test"
     print(f"Result directory: {save_dir}")
 
     if not os.path.exists(f"{data_dir}"):

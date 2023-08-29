@@ -8,17 +8,17 @@ DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Align estimated trajectory to ground truth trajectory.')
-    parser.add_argument('--dataset', help='Dataset name')
-    parser.add_argument('--subdir', help='Subdirectory path')
+    parser.add_argument('dataset', help='Dataset name')
+    parser.add_argument('subdir', help='Subdirectory path')
     parser.add_argument('--dim', help="Dimension")
     args = parser.parse_args()
 
     if args.dataset is None or args.subdir is None:
         data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
-        save_dir = f"{data_dir}/vo_results/normal"
+        save_dir = f"{data_dir}/vo_results/test"
     else:
         data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-        save_dir = f"{data_dir}/vo_results/normal"
+        save_dir = f"{data_dir}/vo_results/test"
     print(f"Result directory: {save_dir}")
 
     if args.dim is None:
