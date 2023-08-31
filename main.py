@@ -1,3 +1,4 @@
+import argparse
 import cv2
 import os
 import numpy as np
@@ -6,7 +7,7 @@ from vo.vo import *
 from vo.draw import draw_vo_poses
 from vo.detector import *
 from vo.tracker import *
-from vo.utils import trans_quats_to_poses, save_trajectory
+from vo.utils import trans_quats_to_poses, save_trajectory, umeyama_alignment, align
 from vo.method.stereo import *
 from vo.datasets.aki import AkiDataset
 from vo.datasets.madmax import MadmaxDataset
@@ -14,22 +15,32 @@ from vo.datasets.madmax import MadmaxDataset
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
-    # Specify the range of images to use
-    start = 0
-    last = None
-    step = 3
-    # start = 2000
-    # last = 2500
-    # step = 7
+    parser = argparse.ArgumentParser(description='Run visual odometry.')
+    parser.add_argument('dataset', help='Dataset name')
+    parser.add_argument('subdir', help='Subdirectory path')
+    parser.add_argument('--align', action='store_true', help="Align estimated trajectory to ground truth")
+    parser.add_argument('--start', type=int, help='Start index of images', default=0)
+    parser.add_argument('--last', type=int, help='Last index of images', default=None)
+    parser.add_argument('--step', type=int, help='Step of images', default=1)
+    parser.add_argument('--save_dir', help='Save directory', default="vo_results/test")
+    args = parser.parse_args()
 
-    # Load datasets
-    data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+    data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
+    if args.dataset == "AKI":
+        dataset = AkiDataset(data_dir, start=args.start, last=args.last, step=args.step)
+    else:
+        dataset = MadmaxDataset(data_dir, start=args.start, last=args.last, step=args.step)
 
-    # data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    # dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    print(f"Command line arguments")
+    print(f"\tDataset\t\t\t: {args.dataset}")
+    print(f"\tSubdirectory\t\t: {args.subdir}")
+    print(f"\tAlign\t\t\t: {args.align}")
+    print(f"\tStart index\t\t: {args.start}")
+    print(f"\tLast index\t\t: {args.last}")
+    print(f"\tStep\t\t\t: {args.step}")
+    print(f"\tSave directory\t\t: {args.save_dir}\n")
 
-    save_dir = f"{data_dir}/vo_results/normal"
+    save_dir = f"{data_dir}/{args.save_dir}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -111,8 +122,40 @@ if __name__ == "__main__":
         gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats,
         start_idx=dataset.start, last_idx=dataset.last, step=dataset.step
     )
+
+    if args.align:
+        rot, t, _ = umeyama_alignment(est_trans.T, img_trans.T, with_scale=False, align_start=True)
+        est_aligned_trans = align(est_trans, rot, t)
+        est_aligned_poses = trans_quats_to_poses(est_quats, est_aligned_trans)
+
+        save_trajectory(f"{save_dir}/aligned_est_traj.txt", img_timestamps, est_aligned_trans, est_quats)
+        np.savez(
+            f"{save_dir}/aligned_result_poses.npz",
+            est_timestamps=img_timestamps, est_poses=est_aligned_trans, est_quats=est_quats,
+            gt_timestamps=gt_timestamps, gt_poses=gt_trans, gt_quats=gt_quats,
+            gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats
+        )
+        est_poses = est_aligned_poses
+
     draw_vo_poses(
         est_poses, gt_poses, img_poses,
-        view=(-55, 145, -60),
-        ylim=(0.0, 1.0)
+        # view=(-55, 145, -60),
+        # ylim=(0.0, 1.0)
     )
+
+# Specify the range of images to use
+# start = 0
+# last = None
+# step = 3
+# start = 1000
+# last = 3000
+# step = 7
+
+# Load datasets
+# data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
+# dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+
+# data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
+# dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+
+# save_dir = f"{data_dir}/vo_results/test"

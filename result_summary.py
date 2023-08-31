@@ -1,3 +1,4 @@
+import argparse
 import os
 import json
 import numpy as np
@@ -7,9 +8,18 @@ from vo.analysis import calc_ate, calc_rpe_rot, calc_rpe_trans
 DATASET_DIR = os.environ['DATASET_DIR']
 
 if __name__ == "__main__":
-    # data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-    data_dir = f"{DATASET_DIR}/MADMAX/LocationA/A-0"
-    save_dir = f"{data_dir}/vo_results/normal"
+    parser = argparse.ArgumentParser(description='Summarize VO results.')
+    parser.add_argument('dataset', help='Dataset name')
+    parser.add_argument('subdir', help='Subdirectory path')
+    parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
+    args = parser.parse_args()
+
+    if args.dataset is None or args.subdir is None:
+        data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
+    else:
+        data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
+    save_dir = f"{data_dir}/vo_results/test"
+    print(f"Result directory: {save_dir}")
 
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
@@ -21,8 +31,10 @@ if __name__ == "__main__":
     start = result_data["start_idx"]
     last = result_data["last_idx"]
 
-    _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
-    _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/aligned_result_poses.npz")
+    if args.aligned:
+        _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/aligned_result_poses.npz")
+    else:
+        _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
 
     # Calcularate ATE and RPE
     trj_len = trajectory_length(gt_img_poses)

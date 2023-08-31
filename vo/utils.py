@@ -109,3 +109,64 @@ def save_trajectory(
 
 def trajectory_length(poses: np.ndarray) -> float:
     return np.sum(np.linalg.norm(poses[1:, :3, 3] - poses[:-1, :3, 3], axis=1))
+
+
+def umeyama_alignment(x: np.ndarray, y: np.ndarray, with_scale: bool = False, align_start: bool = False) -> tuple:
+    """
+    Computes the least squares solution parameters of an Sim(m) matrix
+    that minimizes the distance between a set of registered points.
+    Umeyama, Shinji: Least-squares estimation of transformation parameters between two point patterns. IEEE PAMI, 1991
+    :param x: mxn matrix of points, m = dimension, n = nr. of data points
+    :param y: mxn matrix of points, m = dimension, n = nr. of data points
+    :param with_scale: set to True to align also the scale (default: 1.0 scale)
+    :return: r, t, c - rotation matrix, translation vector and scale factor
+    """
+    if x.shape != y.shape:
+        raise Exception("data matrices must have the same shape")
+
+    dim, n = x.shape  # m = dimension, n = nr. of data points
+
+    # means, eq. 34 and 35
+    mean_x = x.mean(axis=1)
+    mean_y = y.mean(axis=1)
+
+    # variance, eq. 36
+    # "transpose" for column subtraction
+    sigma_x = 1.0 / n * (np.linalg.norm(x - mean_x[:, np.newaxis])**2)
+
+    # covariance matrix, eq. 38
+    outer_sum = np.zeros((dim, dim))
+    for i in range(n):
+        outer_sum += np.outer((y[:, i] - mean_y), (x[:, i] - mean_x))
+    cov_xy = np.multiply(1.0 / n, outer_sum)
+
+    # SVD (text betw. eq. 38 and 39)
+    u, d, v = np.linalg.svd(cov_xy)
+    if np.count_nonzero(d > np.finfo(d.dtype).eps) < dim - 1:
+        raise Exception("Degenerate covariance rank, Umeyama alignment is not possible")
+
+    # S matrix, eq. 43
+    s = np.eye(dim)
+    if np.linalg.det(u) * np.linalg.det(v) < 0.0:
+        # Ensure a RHS coordinate system (Kabsch algorithm).
+        s[dim - 1, dim - 1] = -1
+
+    # rotation, eq. 40
+    rot = u @ s @ v
+
+    # scale & translation, eq. 42 and 41
+    scale = 1 / sigma_x * np.trace(np.diag(d) @ s) if with_scale else 1.0
+
+    if align_start:
+        trans = y[:, 0] - scale * (rot @ x[:, 0])
+    else:
+        trans = mean_y - scale * (rot @ mean_x)
+
+    return rot, trans, scale
+
+
+def align(traj, rot, trans):
+    aligned_traj = np.zeros_like(traj)
+    for i in range(len(traj)):
+        aligned_traj[i] = rot @ traj[i] + trans
+    return aligned_traj
