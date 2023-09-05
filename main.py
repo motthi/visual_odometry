@@ -7,7 +7,7 @@ from vo.vo import *
 from vo.draw import draw_vo_poses
 from vo.detector import *
 from vo.tracker import *
-from vo.utils import trans_quats_to_poses, save_trajectory, umeyama_alignment, align
+from vo.utils import poses_to_trans_quats, trans_quats_to_poses, save_trajectory, umeyama_alignment, transform_poses
 from vo.method.stereo import *
 from vo.datasets.aki import AkiDataset
 from vo.datasets.madmax import MadmaxDataset
@@ -125,13 +125,13 @@ if __name__ == "__main__":
 
     if args.align:
         rot, t, _ = umeyama_alignment(est_trans.T, img_trans.T, with_scale=False, align_start=True)
-        est_aligned_trans = align(est_trans, rot, t)
-        est_aligned_poses = trans_quats_to_poses(est_quats, est_aligned_trans)
+        est_aligned_poses = transform_poses(est_poses, rot, t)
+        est_aligned_trans, est_aligned_quats = poses_to_trans_quats(est_poses)
 
         save_trajectory(f"{save_dir}/aligned_est_traj.txt", img_timestamps, est_aligned_trans, est_quats)
         np.savez(
             f"{save_dir}/aligned_result_poses.npz",
-            est_timestamps=img_timestamps, est_poses=est_aligned_trans, est_quats=est_quats,
+            est_timestamps=img_timestamps, est_poses=est_aligned_trans, est_quats=est_aligned_quats,
             gt_timestamps=gt_timestamps, gt_poses=gt_trans, gt_quats=gt_quats,
             gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats
         )

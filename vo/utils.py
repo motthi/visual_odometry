@@ -165,8 +165,31 @@ def umeyama_alignment(x: np.ndarray, y: np.ndarray, with_scale: bool = False, al
     return rot, trans, scale
 
 
-def align(traj, rot, trans):
-    aligned_traj = np.zeros_like(traj)
-    for i in range(len(traj)):
-        aligned_traj[i] = rot @ traj[i] + trans
-    return aligned_traj
+# def transform_poses(traj, rot, trans):
+#     aligned_traj = np.zeros_like(traj)
+#     for i in range(len(traj)):
+#         aligned_traj[i] = rot @ traj[i] + trans
+#     return aligned_traj
+
+def transform_poses(poses, rot, trans):
+    ts = [pose[:3, 3] for pose in poses]
+    rots = [pose[:3, :3] for pose in poses]
+    aligned_trans = np.zeros_like(ts)
+    for i in range(len(ts)):
+        aligned_trans[i] = rot @ ts[i] + trans
+
+    rel_rot = []
+    for i in range(len(rots) - 1):
+        rel_rot.append(rots[i + 1].T @ rots[i])
+    rel_rot = np.array(rel_rot)
+
+    aligned_rots = []
+    aligned_rots.append(rots[0])
+    for i in range(len(rel_rot)):
+        aligned_rots.append(rel_rot[i] @ aligned_rots[-1])
+    aligned_rots = np.array(aligned_rots)
+
+    aligned_poses = np.zeros_like(poses)
+    for i in range(len(aligned_rots)):
+        aligned_poses[i] = form_transf(aligned_rots[i], aligned_trans[i])
+    return aligned_poses
