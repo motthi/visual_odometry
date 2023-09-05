@@ -13,6 +13,11 @@ if __name__ == "__main__":
     parser.add_argument('--dim', type=int, help='Dimension of trajectory', default=3)
     parser.add_argument('--rpy', action='store_true', help="Draw RPY")
     parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
+    parser.add_argument('--rpy_step', type=int, help="Step of RPY", default=10)
+    parser.add_argument('--view', type=float, help="View angle", nargs="*", default=None)
+    parser.add_argument('--xlim', type=float, help="X limit", nargs="*", default=None)
+    parser.add_argument('--ylim', type=float, help="Y limit", nargs="*", default=None)
+    parser.add_argument('--zlim', type=float, help="Z limit", nargs="*", default=None)
     args = parser.parse_args()
 
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
@@ -27,16 +32,20 @@ if __name__ == "__main__":
         npz_src = f"{result_dir}/vo_result_poses.npz"
     _, est_poses, _, gt_poses, _, gt_img_poses, = load_result_poses(f"{npz_src}")
 
-    if args.rpy:
+    if args.dim == 3 and args.rpy:
         draw_vo_poses_and_quats(
             est_poses, gt_poses, gt_img_poses,
             draw_data="all",
+            view=args.view,
+            xlim=args.xlim,
+            ylim=args.ylim,
+            zlim=args.zlim,
             # view=(-55, 145, -60),
             # xlim=(-2.0, 2.0),
             # ylim=(0.0, 1.0),
             # zlim=(0, 1),
             scale=0.3,
-            step=20,
+            step=args.rpy_step,
             save_src=f"{result_dir}/trajectory_with_rpy.png",
         )
     else:
