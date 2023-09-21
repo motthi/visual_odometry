@@ -111,29 +111,29 @@ if __name__ == "__main__":
     est_trans = np.array([np.array(pose[0:3, 3]).T for pose in est_poses])
 
     vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
-    dataset.save_info(f"{save_dir}/dataset_info.json")
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
+    dataset.save_info(f"{save_dir}/dataset_info.json")
     save_trajectory(f"{save_dir}/estimated_trajectory.txt", img_timestamps, est_trans, est_quats)
     save_trajectory(f"{save_dir}/gt_traj.txt", gt_timestamps, gt_trans, gt_quats, 'tum')
     np.savez(
         f"{save_dir}/vo_result_poses.npz",
-        est_timestamps=img_timestamps, est_poses=est_trans, est_quats=est_quats,
-        gt_timestamps=gt_timestamps, gt_poses=gt_trans, gt_quats=gt_quats,
-        gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats,
+        est_timestamps=img_timestamps, est_trans=est_trans, est_quats=est_quats,
+        gt_timestamps=gt_timestamps, gt_trans=gt_trans, gt_quats=gt_quats,
+        gt_img_timestamps=img_timestamps, gt_img_trans=img_trans, gt_img_quats=img_quats,
         start_idx=dataset.start, last_idx=dataset.last, step=dataset.step
     )
 
     if args.align:
         rot, t, _ = umeyama_alignment(est_trans.T, img_trans.T, with_scale=False, align_start=True)
         est_aligned_poses = transform_poses(est_poses, rot, t)
-        est_aligned_trans, est_aligned_quats = poses_to_trans_quats(est_poses)
+        est_aligned_trans, est_aligned_quats = poses_to_trans_quats(est_aligned_poses)
 
         save_trajectory(f"{save_dir}/aligned_est_traj.txt", img_timestamps, est_aligned_trans, est_quats)
         np.savez(
             f"{save_dir}/aligned_result_poses.npz",
-            est_timestamps=img_timestamps, est_poses=est_aligned_trans, est_quats=est_aligned_quats,
-            gt_timestamps=gt_timestamps, gt_poses=gt_trans, gt_quats=gt_quats,
-            gt_img_timestamps=img_timestamps, gt_img_poses=img_trans, gt_img_quats=img_quats
+            est_timestamps=img_timestamps, est_trans=est_aligned_trans, est_quats=est_aligned_quats,
+            gt_timestamps=gt_timestamps, gt_trans=gt_trans, gt_quats=gt_quats,
+            gt_img_timestamps=img_timestamps, gt_img_trans=img_trans, gt_img_quats=img_quats
         )
         est_poses = est_aligned_poses
 
