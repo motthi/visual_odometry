@@ -242,7 +242,7 @@ def draw_rpy_diff(e_poses, r_poses, save_src):
         est_rot = est_pose[:3, :3]
         gt_rot = gt_pose[:3, :3]
 
-        # @todo Check rover coordinate (Which is X+ direction?)
+        # TODO Check rover coordinate (Which is X+ direction?)
         est_rpy.append(R.from_matrix(est_rot).as_euler(conv_str, degrees=True))
         gt_rpy.append(R.from_matrix(gt_rot).as_euler(conv_str, degrees=True))
     est_rpy = np.array(est_rpy)
