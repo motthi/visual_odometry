@@ -1,7 +1,7 @@
 import argparse
 import os
 import numpy as np
-from vo.utils import load_result_poses, poses_to_trans_quats, trans_quats_to_poses, save_trajectory, align, umeyama_alignment
+from vo.utils import load_result_poses, poses_to_trans_quats, trans_quats_to_poses, save_trajectory, transform_poses, umeyama_alignment
 from vo.draw import draw_vo_poses, draw_vo_poses_and_quats
 
 DATASET_DIR = os.environ['DATASET_DIR']
@@ -32,16 +32,12 @@ if __name__ == "__main__":
     gt_img_trans, gt_img_quats = poses_to_trans_quats(gt_img_poses)
     R, t, _ = umeyama_alignment(est_trans.T, gt_img_trans.T, with_scale=False, align_start=True)
 
-    est_aligned_trans = align(est_trans, R, t)
-    est_aligned_poses = trans_quats_to_poses(est_quats, est_aligned_trans)
+    est_aligned_poses = transform_poses(est_poses, R, t)
+    est_aligned_trans, est_aligned_quats = poses_to_trans_quats(est_aligned_poses)
 
-    save_trajectory(f"{save_dir}/aligned_est_traj.txt", est_ts, est_aligned_trans, est_quats)
+    save_trajectory(f"{save_dir}/aligned_est_traj.txt", est_ts, est_aligned_trans, est_aligned_quats)
     np.savez(
-<<<<<<< HEAD
-        f"{result_dir}/aligned_result_poses.npz",
-=======
         f"{save_dir}/aligned_result_poses.npz",
->>>>>>> 8ee4a7b050ed397282e68a983bbcadef3e785701
         est_timestamps=est_ts, est_poses=est_aligned_trans, est_quats=est_quats,
         gt_timestamps=gt_ts, gt_poses=gt_trans, gt_quats=gt_quats,
         gt_img_timestamps=gt_img_ts, gt_img_poses=gt_img_trans, gt_img_quats=gt_img_quats
@@ -49,7 +45,7 @@ if __name__ == "__main__":
 
     if dim == 2:
         draw_vo_poses(
-            est_poses, gt_poses, gt_img_poses,
+            est_aligned_poses, gt_poses, gt_img_poses,
             dim=dim,
             draw_data="all",
             # save_src=f"{result_dir}/aligned_trajectory.png",

@@ -21,13 +21,13 @@ def create_save_directories(dir: str):
 def load_result_poses(src: str):
     data = np.load(src)
     est_timestamps = data['est_timestamps']
-    est_poses = data['est_poses']
+    est_poses = data['est_trans']
     est_quats = data['est_quats']
     gt_all_timestamps = data['gt_timestamps']
-    gt_all_poses = data['gt_poses']
+    gt_all_poses = data['gt_trans']
     gt_all_quats = data['gt_quats']
     gt_timestamps = data['gt_img_timestamps']
-    gt_poses = data['gt_img_poses']
+    gt_poses = data['gt_img_trans']
     gt_quats = data['gt_img_quats']
 
     est_ps, gt_all_ps, gt_ps = [], [], []
@@ -165,8 +165,31 @@ def umeyama_alignment(x: np.ndarray, y: np.ndarray, with_scale: bool = False, al
     return rot, trans, scale
 
 
-def align(traj, rot, trans):
-    aligned_traj = np.zeros_like(traj)
-    for i in range(len(traj)):
-        aligned_traj[i] = rot @ traj[i] + trans
-    return aligned_traj
+# def transform_poses(traj, rot, trans):
+#     aligned_traj = np.zeros_like(traj)
+#     for i in range(len(traj)):
+#         aligned_traj[i] = rot @ traj[i] + trans
+#     return aligned_traj
+
+def transform_poses(poses, rot, trans):
+    ts = [pose[:3, 3] for pose in poses]
+    rots = [pose[:3, :3] for pose in poses]
+    aligned_trans = np.zeros_like(ts)
+    for i in range(len(ts)):
+        aligned_trans[i] = rot @ ts[i] + trans
+
+    rel_rot = []
+    for i in range(len(rots) - 1):
+        rel_rot.append(rots[i + 1].T @ rots[i])
+    rel_rot = np.array(rel_rot)
+
+    aligned_rots = []
+    aligned_rots.append(rots[0])
+    for i in range(len(rel_rot)):
+        aligned_rots.append(rel_rot[i] @ aligned_rots[-1])
+    aligned_rots = np.array(aligned_rots)
+
+    aligned_poses = np.zeros_like(poses)
+    for i in range(len(aligned_rots)):
+        aligned_poses[i] = form_transf(aligned_rots[i], aligned_trans[i])
+    return aligned_poses

@@ -256,11 +256,11 @@ class StereoVisualOdometry(VisualOdometry):
         # Detect and track keypoints
         s_time = time.time()
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
+        kpt_proc_time = time.time() - s_time
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
             return None
-        kpt_proc_time = time.time() - s_time
 
         # Find the corresponding points in the right image
         s_time = time.time()

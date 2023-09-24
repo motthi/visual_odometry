@@ -11,14 +11,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Summarize VO results.')
     parser.add_argument('dataset', help='Dataset name')
     parser.add_argument('subdir', help='Subdirectory path')
+    parser.add_argument('--saved_dir', help='Save directory', default="test")
     parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
     args = parser.parse_args()
 
-    if args.dataset is None or args.subdir is None:
-        data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
-    else:
-        data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    save_dir = f"{data_dir}/vo_results/test"
+    data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
+    save_dir = f"{data_dir}/vo_results/{args.saved_dir}"
     print(f"Result directory: {save_dir}")
 
     if not os.path.exists(f"{data_dir}"):
@@ -36,21 +34,39 @@ if __name__ == "__main__":
     else:
         _, est_poses, _, gt_poses, _, gt_img_poses = load_result_poses(f"{save_dir}/vo_result_poses.npz")
 
+    results = {}
+
     # Calcularate ATE and RPE
     trj_len = trajectory_length(gt_img_poses)
     ate = calc_ate(gt_img_poses, est_poses)
     rpe_trans = calc_rpe_trans(gt_img_poses, est_poses)
-    rpe_rot = calc_rpe_rot(gt_img_poses, est_poses)
+    rpe_rots = calc_rpe_rot(gt_img_poses, est_poses)
+
+    accuracy = {}
+    rpe_ts = {}
+    rpe_rs = {}
+    accuracy['ate'] = ate
+    for i, (rpe_t, rpe_r) in enumerate(zip(rpe_trans, rpe_rots)):
+        rpe_ts[f"{i:04d}"] = rpe_t
+        rpe_rs[f"{i:04d}"] = rpe_r
+    accuracy['rpe_trans'] = rpe_ts
+    accuracy['rpe_rots'] = rpe_rs
+    accuracy['rpe_trans_mean'] = np.mean(rpe_trans)
+    accuracy['rpe_rots_mean'] = np.mean(rpe_rots)
+
     print(f"Trajectory length\t{trj_len:.3f} [m]")
     print("Results")
     print(f"\tATE\t\t{ate} [m]\t({ate/trj_len*100} [%])")
-    print(f"\tRPE(trans)\t{rpe_trans} [m]")
-    print(f"\tRPE(rot)\t{rpe_rot*180.0/np.pi} [deg]")
+    print(f"\tRPE(trans)\t{np.mean(rpe_trans)} [m]")
+    print(f"\tRPE(rot)\t{np.mean(rpe_rots)*180.0/np.pi} [deg]")
 
     # Calculate processing time
     kpt_proc_time = 0.0
     stereo_proc_time = 0.0
     optmize_proc_time = 0.0
+    kpt_times = {}
+    stereo_times = {}
+    optmize_times = {}
     for i, idx in enumerate(range(start, last - step, step)):
         if i == 0:
             continue
@@ -59,15 +75,30 @@ if __name__ == "__main__":
         kpt_proc_time += proc_times['kpt']
         stereo_proc_time += proc_times['stereo']
         optmize_proc_time += proc_times['optimization']
+        kpt_times[f"{i:04d}"] = proc_times['kpt']
+        stereo_times[f"{i:04d}"] = proc_times['stereo']
+        optmize_times[f"{i:04d}"] = proc_times['optimization']
     kpt_proc_time = kpt_proc_time / (i + 1)
     stereo_proc_time = stereo_proc_time / (i + 1)
     optmize_proc_time = optmize_proc_time / (i + 1)
+
+    proc_times['kpt'] = kpt_times
+    proc_times['stereo'] = stereo_times
+    proc_times['optimization'] = optmize_times
+    proc_times['kpt_mean'] = kpt_proc_time
+    proc_times['stereo_mean'] = stereo_proc_time
+    proc_times['optimization_mean'] = optmize_proc_time
 
     print(f"\nProcessing time")
     print(f"  Total\t\t: {kpt_proc_time + stereo_proc_time + optmize_proc_time:.5f} [s]")
     print(f"  Keypoint\t: {kpt_proc_time:.5f} [s]")
     print(f"  Stereo\t: {stereo_proc_time:.5f} [s]")
     print(f"  Optimize\t: {optmize_proc_time:.5f} [s]")
+
+    results['trj_len'] = trj_len
+    results['accuracy'] = accuracy
+    results['process_time'] = proc_times
+    json.dump(results, open(f"{save_dir}/summary.json", "w"), indent='\t')
 
     print("\nFailure information")
     for i, idx in enumerate(range(start, last - step, step)):
