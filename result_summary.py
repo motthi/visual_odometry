@@ -53,12 +53,14 @@ if __name__ == "__main__":
     accuracy['rpe_rots'] = rpe_rs
     accuracy['rpe_trans_mean'] = np.mean(rpe_trans)
     accuracy['rpe_rots_mean'] = np.mean(rpe_rots)
+    accuracy['rpe_trans_std'] = np.std(rpe_trans)
+    accuracy['rpe_rots_std'] = np.std(rpe_rots)
 
     print(f"Trajectory length\t{trj_len:.3f} [m]")
     print("Results")
     print(f"\tATE\t\t{ate} [m]\t({ate/trj_len*100} [%])")
-    print(f"\tRPE(trans)\t{np.mean(rpe_trans)} [m]")
-    print(f"\tRPE(rot)\t{np.mean(rpe_rots)*180.0/np.pi} [deg]")
+    print(f"\tRPE(trans)\t{np.mean(rpe_trans)}+/-{np.std(rpe_trans)} [m]")
+    print(f"\tRPE(rot)\t{np.mean(rpe_rots)*180.0/np.pi}+/-{np.std(rpe_rots)*180.0/np.pi} [deg]")
 
     # Calculate processing time
     kpt_proc_time = 0.0
