@@ -169,7 +169,8 @@ def draw_trajectory(
     gt_poses: np.ndarray,
     gt_all_poses: np.ndarray,
     dim: int = 3,
-    draw_data: str = "all"
+    draw_data: str = "all",
+    label="Estimated",
 ):
     e_trans = est_poses[:, :3, 3]
     gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
@@ -185,9 +186,9 @@ def draw_trajectory(
             ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], gt_all_trans[:, z_idx], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label=label, markersize=2)
         else:
-            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], e_trans[:, z_idx], '-o', label='Estimated', markersize=2)
+            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], e_trans[:, z_idx], '-o', label=label, markersize=2)
     if draw_data == "all":
         if gt_poses is not None:
             if dim == 2:
