@@ -11,6 +11,12 @@ class AkiDataset(ImageDataset):
         super().__init__(dataset_dir, start, last, step)
         self.l_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/left/*.png"))
         self.r_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/right/*.png"))
+        if start < 0:
+            warnings.warn(f"start={start} is negative")
+            start = 0
+        if start > len(self.l_img_srcs):
+            warnings.warn(f"start={start} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+            start = 0
         if last is not None and last > len(self.l_img_srcs):
             warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
             last = None

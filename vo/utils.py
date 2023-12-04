@@ -20,13 +20,13 @@ def create_save_directories(dir: str):
 
 def load_result_poses(src: str):
     data = np.load(src)
-    est_timestamps = data['est_timestamps']
+    est_timestamps = data['est_timestamps'] if 'est_timestamps' in data else None
     est_poses = data['est_trans']
     est_quats = data['est_quats']
-    gt_all_timestamps = data['gt_timestamps']
+    gt_all_timestamps = data['gt_timestamps'] if 'gt_timestamps' in data else None
     gt_all_poses = data['gt_trans']
     gt_all_quats = data['gt_quats']
-    gt_timestamps = data['gt_img_timestamps']
+    gt_timestamps = data['gt_img_timestamps'] if 'gt_img_timestamps' in data else None
     gt_poses = data['gt_img_trans']
     gt_quats = data['gt_img_quats']
 
