@@ -32,7 +32,7 @@ def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
     return np.mean(errors)
 
 
-def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
+def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> list:
     """ Relative Pose Error for rotation
     """
     assert len(gt_poses) == len(e_poses)
