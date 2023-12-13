@@ -57,9 +57,9 @@ if __name__ == "__main__":
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    # detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
+    detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
     # detector = ShiTomashiCornerDetector()
-    detector = cv2.ORB_create()
+    # detector = cv2.ORB_create()
     # detector = cv2.AKAZE_create()
 
     # Feature descriptor
@@ -69,27 +69,28 @@ if __name__ == "__main__":
     # descriptor = cv2.xfeatures2d.SURF_create()
 
     # Tracker
-    max_pts_dist = 200
+    max_pts_dist = 50
     tracker = BruteForceTracker(max_pts_dist, cv2.NORM_HAMMING, cross_check=True)
     # tracker = FlannTracker()
     # tracker = OpticalFlowTracker(win_size=(100, 100))
 
     # Estimator
+    inlier_thd = 0.01
+    max_trial = 100
     # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
-    estimator = LmBasedEstimator(dataset.lcam_params['projection'])
+    # estimator = LmBasedEstimator(dataset.lcam_params['projection'])
     # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
-    # estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_trial=50, inlier_thd=0.05)
+    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_trial=max_trial, inlier_thd=inlier_thd)
 
     # Image masking
     img_mask = None
-    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
     # img_mask[300:, :] = 0
-    # D = 50
-    # img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
-    # img_mask[: D, :] = 0
-    # img_mask[-80:, :] = 0
-    # img_mask[:, : D] = 0
-    # img_mask[:, -D:] = 0
+    D = 50
+    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
+    img_mask[: D, :] = 0
+    img_mask[-100:, :] = 0
+    img_mask[:, : D] = 0
+    img_mask[:, -D:] = 0
 
     # Set initial pose
     rot = R.from_quat(img_quats[0]).as_matrix()
@@ -142,20 +143,3 @@ if __name__ == "__main__":
         # view=(-55, 145, -60),
         # ylim=(0.0, 1.0)
     )
-
-# Specify the range of images to use
-# start = 0
-# last = None
-# step = 3
-# start = 1000
-# last = 3000
-# step = 7
-
-# Load datasets
-# data_dir = f"{DATASET_DIR}/AKI/aki_20230615_1"
-# dataset = AkiDataset(data_dir, start=start, last=last, step=step)
-
-# data_dir = f"{DATASET_DIR}/MADMAX/LocationD/D-0"
-# dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
-
-# save_dir = f"{data_dir}/vo_results/test"
