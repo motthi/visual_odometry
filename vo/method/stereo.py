@@ -261,7 +261,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
     ) -> np.ndarray:
         prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
         curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
-        min_error = 1e10
+        max_inlier_num = 0
         sample_num = 3
 
         T = None
@@ -284,22 +284,15 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             if len(inlier_idx) < 10:
                 continue
 
-            inlier_prev_3d_pts = prev_3d_pts[:, inlier_idx]
-            inlier_curr_3d_pts = curr_3d_pts[:, inlier_idx]
-            inlier_T = self.svd_based_estimate(inlier_prev_3d_pts, inlier_curr_3d_pts)
-            # if np.fabs(inlier_T[1, 3]) > 0.05:
-            #     continue
-
-            res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], inlier_prev_3d_pts, inlier_curr_3d_pts)
+            # Count up the number of inliers
+            res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
             res = res.reshape((len(inlier_idx) * 2, -1))
-            error = np.average(np.linalg.norm(res, axis=1))
-
-            if error < min_error:
-                min_error = error
+            error_pred = np.linalg.norm(res[:len(inlier_idx), :], axis=1)  # Reprojection error against i to i-1
+            error_curr = np.linalg.norm(res[len(inlier_idx):, :], axis=1)  # Reprojection error against i-1 to i
+            inlier_idx_ = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
+            if len(inlier_idx_) > max_inlier_num:
+                max_inlier_num = len(inlier_idx_)
                 T = inlier_T
-
-        self.iter_cnts.append(cnt)
-        self.min_errors.append(min_error)
 
         # Inversion is needed because T will be multiplied from the right
         if T is not None:
