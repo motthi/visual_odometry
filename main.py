@@ -80,7 +80,7 @@ if __name__ == "__main__":
     # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
     # estimator = LmBasedEstimator(dataset.lcam_params['projection'])
     # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
-    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_trial=max_trial, inlier_thd=inlier_thd)
+    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_trial, inlier_thd=inlier_thd)
 
     # Image masking
     img_mask = None

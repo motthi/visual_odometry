@@ -75,7 +75,7 @@ class LmBasedEstimator(StereoVoEstimator):
     def estimate(
         self,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
+        prev_pts: np.ndarray, curr_pts: np.ndarray
     ) -> np.ndarray:
         if prev_pixes.shape[0] < 3:
             return None
@@ -90,8 +90,8 @@ class LmBasedEstimator(StereoVoEstimator):
             sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
             sample_prev_pixes = prev_pixes[sample_idx]
             sample_curr_pixes = curr_pixes[sample_idx]
-            sample_prev_pts = prev_3d_pts[sample_idx]
-            sample_curr_pts = curr_3d_pts[sample_idx]
+            sample_prev_pts = prev_pts[sample_idx]
+            sample_curr_pts = curr_pts[sample_idx]
 
             # Perform least squares optimization
             opt_res = least_squares(
@@ -103,8 +103,8 @@ class LmBasedEstimator(StereoVoEstimator):
             )
 
             # Calculate the error for the optimized transformation
-            res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            res = res.reshape((prev_3d_pts.shape[0] * 2, -1))
+            res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[0] * 2, -1))
             err = np.sum(np.linalg.norm(res, axis=1))
 
             # Check if the error is less the the current min error. Save the result if it is
@@ -136,7 +136,7 @@ class LmBasedEstimator(StereoVoEstimator):
         self,
         v: np.ndarray,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
+        prev_pts: np.ndarray, curr_pts: np.ndarray
     ) -> np.ndarray:
         """Optimization cost function for SE3 manifold
 
@@ -153,15 +153,15 @@ class LmBasedEstimator(StereoVoEstimator):
         t_SE3 = SE3.exp(v)
         transf = form_transf(t_SE3.rot.mat, t_SE3.trans)
         ones = np.ones((prev_pixes.shape[0], 1))
-        prev_3d_pts = np.hstack([prev_3d_pts, ones]).T
-        curr_3d_pts = np.hstack([curr_3d_pts, ones]).T
-        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
+        prev_pts = np.hstack([prev_pts, ones]).T
+        curr_pts = np.hstack([curr_pts, ones]).T
+        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
 
     def rpy_optimize_cost(
         self,
         dof: np.ndarray,
-        p_pixes: np.ndarray, c_pixes: np.ndarray,
-        p3d_pts: np.ndarray, c3d_pts: np.ndarray
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray
     ) -> np.ndarray:
         """Optimization cost function for RPY manifold
 
@@ -179,10 +179,10 @@ class LmBasedEstimator(StereoVoEstimator):
         R, _ = cv2.Rodrigues(r)       # Create the rotation matrix from the rotation vector
         t = dof[3:]                   # Get the translation vector
         transf = form_transf(R, t)    # Create the transformation matrix from the rotation matrix and translation vector
-        ones = np.ones((p_pixes.shape[0], 1))
-        p3d_pts = np.hstack([p3d_pts, ones]).T
-        c3d_pts = np.hstack([c3d_pts, ones]).T
-        return self.image_reprojection_residuals(transf, p_pixes, c_pixes, p3d_pts, c3d_pts)
+        ones = np.ones((prev_pixes.shape[0], 1))
+        prev_pts = np.hstack([prev_pts, ones]).T
+        curr_pts = np.hstack([curr_pts, ones]).T
+        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
 
     def save_results(self, src: str):
         self.iter_cnts = np.array(self.iter_cnts)
@@ -194,16 +194,16 @@ class SvdBasedEstimator(StereoVoEstimator):
     def estimate(
         self,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
-        prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
-        curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
-        T = self.svd_based_estimate(prev_3d_pts, curr_3d_pts)
+        prev_pts = np.vstack((prev_pts.T, np.ones((1, prev_pts.shape[0]))))
+        curr_pts = np.vstack((curr_pts.T, np.ones((1, curr_pts.shape[0]))))
+        T = self.svd_based_estimate(prev_pts, curr_pts)
         return T
 
     def svd_based_estimate(
         self,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
         """Estime transformation matrix using SVD
 
@@ -214,13 +214,13 @@ class SvdBasedEstimator(StereoVoEstimator):
         Returns:
             np.ndarray: Transformation matrix in homogeneous coordinates
         """
-        prev_3d_pts = prev_3d_pts[: 3, :]
-        curr_3d_pts = curr_3d_pts[: 3, :]
-        avg_prev_3d_pts = np.mean(prev_3d_pts, axis=1).reshape((3, -1))
-        avg_curr_3d_pts = np.mean(curr_3d_pts, axis=1).reshape((3, -1))
+        prev_pts = prev_pts[: 3, :]
+        curr_pts = curr_pts[: 3, :]
+        avg_prev_pts = np.mean(prev_pts, axis=1).reshape((3, -1))
+        avg_curr_pts = np.mean(curr_pts, axis=1).reshape((3, -1))
 
-        R = self.rotation_estimate(prev_3d_pts - avg_prev_3d_pts, curr_3d_pts - avg_curr_3d_pts)
-        t = avg_curr_3d_pts - R @ avg_prev_3d_pts
+        R = self.rotation_estimate(prev_pts - avg_prev_pts, curr_pts - avg_curr_pts)
+        t = avg_curr_pts - R @ avg_prev_pts
         T = np.eye(4)
         T[: 3, : 3] = R
         T[: 3, 3] = t[: 3, 0]
@@ -247,45 +247,44 @@ class SvdBasedEstimator(StereoVoEstimator):
 
 
 class RansacSvdBasedEstimator(SvdBasedEstimator):
-    def __init__(self, P_l, max_trial: int = 20, inlier_thd: float = 0.01):
+    def __init__(self, P_l, max_iter: int = 20, inlier_thd: float = 0.01):
         super().__init__(P_l)
-        self.max_trial = max_trial
+        self.max_iter = max_iter
         self.inlier_thd = inlier_thd
-        self.iter_cnts = []
-        self.min_errors = []
 
     def estimate(
         self,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
-        prev_3d_pts = np.vstack((prev_3d_pts.T, np.ones((1, prev_3d_pts.shape[0]))))
-        curr_3d_pts = np.vstack((curr_3d_pts.T, np.ones((1, curr_3d_pts.shape[0]))))
+        # Add ones to the end of the points to make them homogeneous
+        prev_pts = np.vstack((prev_pts.T, np.ones((1, prev_pts.shape[0]))))
+        curr_pts = np.vstack((curr_pts.T, np.ones((1, curr_pts.shape[0]))))
+
         max_inlier_num = 0
         sample_num = 3
-
         T = None
-        if prev_3d_pts.shape[1] < sample_num:
+        if prev_pts.shape[1] < sample_num:
             return T
-        for cnt in range(self.max_trial):
-            sample_idx = np.random.choice(range(prev_3d_pts.shape[1]), sample_num, replace=False)
-            sample_prev_3d_pts = prev_3d_pts[:, sample_idx]
-            sample_curr_3d_pts = curr_3d_pts[:, sample_idx]
-            sample_T = self.svd_based_estimate(sample_prev_3d_pts, sample_curr_3d_pts)
+        for _ in range(self.max_iter):
+            # Sample 3 points and estimate
+            sample_idx = np.random.choice(range(prev_pts.shape[1]), sample_num, replace=False)
+            sample_T = self.svd_based_estimate(prev_pts[:, sample_idx], curr_pts[:, sample_idx])
 
             # Error estimation
-            res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_3d_pts, curr_3d_pts)
-            res = res.reshape((prev_3d_pts.shape[1] * 2, -1))
-            error_pred_flag = np.all(res[:prev_3d_pts.shape[1], :] < self.inlier_thd, axis=1)
-            error_curr_flag = np.all(res[prev_3d_pts.shape[1]:, :] < self.inlier_thd, axis=1)
+            res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[1] * 2, -1))
+            error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
+            error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
 
             # Find inliner and re-estimate
             inlier_idx = np.where(np.logical_and(error_pred_flag, error_curr_flag))[0]
             if len(inlier_idx) < 10:
                 continue
+            inlier_T = self.svd_based_estimate(prev_pts[:, inlier_idx], curr_pts[:, inlier_idx])
 
             # Count up the number of inliers
-            res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_3d_pts[:, inlier_idx], curr_3d_pts[:, inlier_idx])
+            res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_pts[:, inlier_idx], curr_pts[:, inlier_idx])
             res = res.reshape((len(inlier_idx) * 2, -1))
             error_pred = np.linalg.norm(res[:len(inlier_idx), :], axis=1)  # Reprojection error against i to i-1
             error_curr = np.linalg.norm(res[len(inlier_idx):, :], axis=1)  # Reprojection error against i-1 to i
@@ -301,12 +300,8 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
         return T
 
     def save_results(self, src: str):
-        self.iter_cnts = np.array(self.iter_cnts)
-        self.min_errors = np.array(self.min_errors)
         np.savez(
             src,
-            max_trial=self.max_trial,
-            inlier_thd=self.inlier_thd,
-            iter_cnts=self.iter_cnts,
-            min_errors=self.min_errors
+            max_iter=self.max_iter,
+            inlier_thd=self.inlier_thd
         )
