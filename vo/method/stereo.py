@@ -88,19 +88,9 @@ class LmBasedEstimator(StereoVoEstimator):
         xi_init = np.zeros(6)
         for cnt in range(self.max_iter):
             sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
-            sample_prev_pixes = prev_pixes[sample_idx]
-            sample_curr_pixes = curr_pixes[sample_idx]
-            sample_prev_pts = prev_pts[sample_idx]
-            sample_curr_pts = curr_pts[sample_idx]
 
             # Perform least squares optimization
-            opt_res = least_squares(
-                self.optimize_function,                             # Function to minimize
-                xi_init,                                           # Initial guess
-                method='lm',                                        # Levenberg-Marquardt algorithm
-                max_nfev=200,                                       # Max number of function evaluations
-                args=(sample_prev_pixes, sample_curr_pixes, sample_prev_pts, sample_curr_pts)   # Additional arguments to pass to the function
-            )
+            opt_res = self.optimize_pose(xi_init, prev_pixes[sample_idx], curr_pixes[sample_idx], prev_pts[sample_idx], curr_pts[sample_idx])
 
             # Calculate the error for the optimized transformation
             res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_pts, curr_pts)
@@ -110,8 +100,8 @@ class LmBasedEstimator(StereoVoEstimator):
             # Check if the error is less the the current min error. Save the result if it is
             if err < min_error:
                 min_error = err
-                out_pose = opt_res.x
-                xi_init = out_pose
+                out_pose = opt_res
+                xi_init = out_pose.x
                 early_termination = 0
             else:
                 early_termination += 1
@@ -121,16 +111,29 @@ class LmBasedEstimator(StereoVoEstimator):
         self.iter_cnts.append(cnt)
         self.min_erros.append(min_error)
 
+        T = self.to_homogeneous(out_pose)
+        return T
+
+    def to_homogeneous(self, opt_res) -> np.ndarray:
         if self.manifold == 'rpy':
-            r = out_pose[:3]             # Get the rotation vector
+            r = opt_res.x[:3]             # Get the rotation vector
             R, _ = cv2.Rodrigues(r)      # Make the rotation matrix
-            t = out_pose[3:]            # Get the translation vector
+            t = opt_res.x[3:]            # Get the translation vector
         elif self.manifold == 'se3':
-            t_SE3 = SE3.exp(out_pose)
+            t_SE3 = SE3.exp(opt_res.x)
             R = t_SE3.rot.mat
             t = t_SE3.trans
-        T = form_transf(R, t)
-        return T
+        return form_transf(R, t)
+
+    def optimize_pose(self, xi_init, prev_pixes, curr_pixes, prev_pts, curr_pts):
+        opt_res = least_squares(
+            self.optimize_function,                             # Function to minimize
+            xi_init,                                           # Initial guess
+            method='lm',                                        # Levenberg-Marquardt algorithm
+            max_nfev=100,                                       # Max number of function evaluations
+            args=(prev_pixes, curr_pixes, prev_pts, curr_pts)   # Additional arguments to pass to the function
+        )
+        return opt_res
 
     def se3_optimize_cost(
         self,
