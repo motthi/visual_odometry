@@ -31,12 +31,12 @@ class StereoVoEstimator(VoEstimator):
         """
         # Create the projection matrix for the i-1'th image and i'th image
         transf_inv = np.linalg.inv(transf)
-        f_projection = self.P_l @ transf
-        b_projection = self.P_l @ transf_inv
+        f_proj = self.P_l @ transf
+        b_proj = self.P_l @ transf_inv
 
-        q1_pred = curr_3d_pts.T @ f_projection.T        # Project 3D points from i'th image to i-1'th image
+        q1_pred = curr_3d_pts.T @ f_proj.T              # Project 3D points from i'th image to i-1'th image
         q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]      # Un-homogenize
-        q2_pred = prev_3d_pts.T @ b_projection.T        # Project 3D points from i-1'th image to i'th image
+        q2_pred = prev_3d_pts.T @ b_proj.T              # Project 3D points from i-1'th image to i'th image
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]      # Un-homogenize
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
@@ -48,11 +48,11 @@ class StereoVoEstimator(VoEstimator):
         prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
         transf_inv = np.linalg.inv(transf)
-        f_reprojection = transf @ prev_pts
-        b_reprojection = transf_inv @ curr_pts
-        e1 = curr_pts - f_reprojection
-        e2 = prev_pts - b_reprojection
-        residuals = np.vstack([e1[:3], e2[:3]]).flatten()
+        q1_pred = curr_pts.T @ transf.T
+        q1_pred = q1_pred[:, :3].T / q1_pred[:, 3]
+        q2_pred = prev_pts.T @ transf_inv.T
+        q2_pred = q2_pred[:, :3].T / q2_pred[:, 3]
+        residuals = np.vstack([q1_pred - prev_pts[:3, :], q2_pred - curr_pts[:3, :]]).flatten()
         return residuals
 
 
