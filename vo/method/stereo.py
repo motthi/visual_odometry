@@ -15,7 +15,7 @@ class StereoVoEstimator(VoEstimator):
         self,
         transf: np.ndarray,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_3d_pts: np.ndarray, curr_3d_pts: np.ndarray
+        prev_pts: np.ndarray, curr_pts: np.ndarray
     ) -> np.ndarray:
         """Calculate residuals for reprojection
 
@@ -23,8 +23,8 @@ class StereoVoEstimator(VoEstimator):
             transf (np.ndarray): Transformation matrix in the homogeneous form
             prev_pixes (np.ndarray): Pixel points in image 1
             curr_pixes (np.ndarray): Pixel points in image 2
-            prev_3d_pts (np.ndarray): 3D points in image 1
-            curr_3d_pts (np.ndarray): 3D points in image 2
+            prev_pts (np.ndarray): 3D points in image 1
+            curr_pts (np.ndarray): 3D points in image 2
 
         Returns:
             np.ndarray: Reprojection residuals (Flattened)
@@ -34,19 +34,24 @@ class StereoVoEstimator(VoEstimator):
         f_proj = self.P_l @ transf
         b_proj = self.P_l @ transf_inv
 
-        q1_pred = curr_3d_pts.T @ f_proj.T              # Project 3D points from i'th image to i-1'th image
+        q1_pred = curr_pts.T @ f_proj.T              # Project 3D points from i'th image to i-1'th image
         q1_pred = q1_pred[:, :2].T / q1_pred[:, 2]      # Un-homogenize
-        q2_pred = prev_3d_pts.T @ b_proj.T              # Project 3D points from i-1'th image to i'th image
+        q2_pred = prev_pts.T @ b_proj.T              # Project 3D points from i-1'th image to i'th image
         q2_pred = q2_pred[:, :2].T / q2_pred[:, 2]      # Un-homogenize
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
 
-    def residuals_3d_to_3d(
-        self,
-        transf: np.ndarray,
-        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
-        prev_pts: np.ndarray, curr_pts: np.ndarray,
-    ) -> np.ndarray:
+    def residuals_3d_to_3d(self, transf: np.ndarray, prev_pts: np.ndarray, curr_pts: np.ndarray) -> np.ndarray:
+        """Calculate residuals for 3D to 3D
+
+        Args:
+            transf (np.ndarray): Transformation matrix in the homogeneous form
+            prev_pts (np.ndarray): Previous 3D points
+            curr_pts (np.ndarray): Current 3D points
+
+        Returns:
+            np.ndarray: Residuals (Flattened)
+        """
         transf_inv = np.linalg.inv(transf)
         q1_pred = curr_pts.T @ transf.T
         q2_pred = prev_pts.T @ transf_inv.T
@@ -94,7 +99,7 @@ class LmBasedEstimator(StereoVoEstimator):
             sample_T = self.to_homogeneous(opt_res)
 
             # Calculate the error for the optimized transformation
-            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(sample_T, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             err = np.sum(np.linalg.norm(res, axis=1))
 
@@ -159,7 +164,7 @@ class LmBasedEstimator(StereoVoEstimator):
         ones = np.ones((prev_pixes.shape[0], 1))
         prev_pts = np.hstack([prev_pts, ones]).T
         curr_pts = np.hstack([curr_pts, ones]).T
-        return self.residuals_3d_to_3d(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
+        return self.residuals_3d_to_3d(transf, prev_pts, curr_pts)
 
     def rpy_optimize_cost(
         self,
@@ -186,7 +191,7 @@ class LmBasedEstimator(StereoVoEstimator):
         ones = np.ones((prev_pixes.shape[0], 1))
         prev_pts = np.hstack([prev_pts, ones]).T
         curr_pts = np.hstack([curr_pts, ones]).T
-        return self.residuals_3d_to_3d(transf, None, None, prev_pts, curr_pts)
+        return self.residuals_3d_to_3d(transf, prev_pts, curr_pts)
 
     def save_results(self, src: str):
         self.iter_cnts = np.array(self.iter_cnts)
@@ -227,7 +232,7 @@ class RansacLmEstimator(LmBasedEstimator):
 
             # Error estimation
             # res = self.residuals_2d_to_3d(inlier_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
-            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(sample_T, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
@@ -242,7 +247,7 @@ class RansacLmEstimator(LmBasedEstimator):
 
             # Count up the number of inliers
             # res = self.residuals_2d_to_3d(inlier_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
-            res = self.residuals_3d_to_3d(inlier_T, None, None, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(inlier_T, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
@@ -341,7 +346,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
 
             # Error estimation
             # res = self.residuals_2d_to_3d(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
-            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(sample_T, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
@@ -354,7 +359,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
 
             # Count up the number of inliers
             # res = self.residuals_2d_to_3d(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
-            res = self.residuals_3d_to_3d(inlier_T, None, None, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(inlier_T, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
