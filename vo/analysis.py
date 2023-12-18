@@ -17,7 +17,7 @@ def calc_ate(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
     return np.mean(errors)
 
 
-def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
+def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
     """ Relative Pose Error for translation
     """
     assert len(gt_poses) == len(e_poses)
@@ -29,10 +29,10 @@ def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
         F = np.linalg.inv(Q) @ P
         # assert np.allclose(F[:3, :3], np.eye(3))
         errors.append(np.linalg.norm(F[:3, 3]))
-    return errors
+    return np.array(errors)
 
 
-def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> list:
+def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
     """ Relative Pose Error for rotation
     """
     assert len(gt_poses) == len(e_poses)
@@ -45,4 +45,4 @@ def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> list:
         # assert np.allclose(F[:3, :3], np.eye(3))
         ang_r = np.arccos((np.trace(F[:3, :3]) - 1) / 2)
         errors.append(ang_r)
-    return errors
+    return np.array(errors)
