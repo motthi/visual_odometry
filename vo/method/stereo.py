@@ -48,9 +48,9 @@ class StereoVoEstimator(VoEstimator):
         prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
         transf_inv = np.linalg.inv(transf)
-        q1_pred = prev_pts.T @ transf.T
-        q2_pred = curr_pts.T @ transf_inv.T
-        residuals = np.vstack([q1_pred[:, :3].T - curr_pts[:3, :], q2_pred[:, :3].T - prev_pts[:3, :]]).flatten()
+        q1_pred = curr_pts.T @ transf.T
+        q2_pred = prev_pts.T @ transf_inv.T
+        residuals = np.vstack([q1_pred[:, :3].T - prev_pts[:3, :], q2_pred[:, :3].T - curr_pts[:3, :]]).flatten()
         return residuals
 
 
@@ -223,8 +223,8 @@ class SvdBasedEstimator(StereoVoEstimator):
         avg_prev_pts = np.mean(prev_pts, axis=1).reshape((3, -1))
         avg_curr_pts = np.mean(curr_pts, axis=1).reshape((3, -1))
 
-        R = self.rotation_estimate(prev_pts - avg_prev_pts, curr_pts - avg_curr_pts)
-        t = avg_curr_pts - R @ avg_prev_pts
+        R = self.rotation_estimate(curr_pts - avg_curr_pts, prev_pts - avg_prev_pts)
+        t = avg_prev_pts - R @ avg_curr_pts
         T = np.eye(4)
         T[: 3, : 3] = R
         T[: 3, 3] = t[: 3, 0]
@@ -276,6 +276,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             sample_T = self.svd_based_estimate(prev_pts[:, sample_idx], curr_pts[:, sample_idx])
 
             # Error estimation
+            # res = self.residuals_2d_to_3d(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
             res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
@@ -288,6 +289,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             inlier_T = self.svd_based_estimate(prev_pts[:, inlier_idx], curr_pts[:, inlier_idx])
 
             # Count up the number of inliers
+            # res = self.residuals_2d_to_3d(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
             res = self.residuals_3d_to_3d(inlier_T, None, None, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
@@ -296,11 +298,6 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             if len(inlier_idx_) > max_inlier_num:
                 max_inlier_num = len(inlier_idx_)
                 T = inlier_T
-
-        # Inversion is needed because T will be multiplied from the right
-        if T is not None:
-            T = np.linalg.inv(T)
-
         return T
 
     def save_results(self, src: str):
