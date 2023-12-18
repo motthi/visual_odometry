@@ -194,6 +194,70 @@ class LmBasedEstimator(StereoVoEstimator):
         np.savez(src, manifold=self.manifold, iter_cnts=self.iter_cnts, min_errors=self.min_errors)
 
 
+class RansacLmEstimator(LmBasedEstimator):
+    def __init__(self, P_l, max_iter=100, manifold='rpy', inlier_thd=0.01):
+        super().__init__(P_l, max_iter, manifold)
+        self.max_iter = max_iter
+        self.inlier_thd = inlier_thd
+
+    def estimate(
+        self,
+        prev_pixes: np.ndarray, curr_pixes: np.ndarray,
+        prev_pts: np.ndarray, curr_pts: np.ndarray
+    ) -> np.ndarray:
+        if prev_pixes.shape[0] < 3:
+            return None
+
+        # Add ones to the end of the points to make them homogeneous
+        prev_pts = np.vstack((prev_pts.T, np.ones((1, prev_pts.shape[0]))))
+        curr_pts = np.vstack((curr_pts.T, np.ones((1, curr_pts.shape[0]))))
+
+        xi_init = np.zeros(6)
+        sample_num = 3
+        max_inlier_num = 0
+        T = None
+        if prev_pts.shape[1] < sample_num:
+            return T
+        for _ in range(self.max_iter):
+            # Sample 3 points and estimate
+            sample_idx = np.random.choice(range(prev_pts.shape[1]), sample_num, replace=False)
+
+            opt_res = self.optimize_pose(xi_init, prev_pixes[sample_idx], curr_pixes[sample_idx], prev_pts[:3, sample_idx].T, curr_pts[:3, sample_idx].T)
+            sample_T = self.to_homogeneous(opt_res)
+
+            # Error estimation
+            # res = self.residuals_2d_to_3d(inlier_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[1] * 2, -1))
+            error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
+            error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
+
+            # Find inliner and re-estimate
+            inlier_idx = np.where(np.logical_and(error_pred_flag, error_curr_flag))[0]
+            if len(inlier_idx) < 10:
+                continue
+
+            opt_res = self.optimize_pose(opt_res.x, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_pts[:3, inlier_idx].T, curr_pts[:3, inlier_idx].T)
+            inlier_T = self.to_homogeneous(opt_res)
+
+            # Count up the number of inliers
+            # res = self.residuals_2d_to_3d(inlier_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(inlier_T, None, None, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[1] * 2, -1))
+            error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
+            error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
+            inlier_idx_ = np.where(np.logical_and(error_pred_flag, error_curr_flag))[0]
+            if len(inlier_idx_) > max_inlier_num:
+                max_inlier_num = len(inlier_idx_)
+                xi_init = opt_res.x
+                T = inlier_T
+
+        return T
+
+    def save_results(self, src: str):
+        np.savez(src, manifold=self.manifold, max_iter=self.max_iter, inlier_thd=self.inlier_thd)
+
+
 class SvdBasedEstimator(StereoVoEstimator):
     def estimate(
         self,
