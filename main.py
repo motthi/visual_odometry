@@ -76,11 +76,12 @@ if __name__ == "__main__":
 
     # Estimator
     inlier_thd = 0.01
-    max_trial = 100
+    max_iter = 100
     # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
     # estimator = LmBasedEstimator(dataset.lcam_params['projection'])
+    # estimator = RansacLmEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
     # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
-    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_trial, inlier_thd=inlier_thd)
+    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
 
     # Image masking
     img_mask = None
