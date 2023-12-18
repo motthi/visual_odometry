@@ -83,11 +83,7 @@ class VisualOdometry():
             list[list, list, list]: [Keypoints in previous image, Keypoints in current image, DMatches]
         """
         curr_kpts, curr_descs = self.detect_kpts(curr_img)
-        ptp, ctp, dmatches = self.tracker.track(
-            prev_img=prev_img, curr_img=curr_img,
-            prev_kpts=self.left_kpts[i], prev_descs=self.left_descs[i],
-            curr_kpts=curr_kpts, curr_descs=curr_descs
-        )
+        ptp, ctp, dmatches = self.track_kpts(prev_img, curr_img, self.left_kpts[i], self.left_descs[i], curr_kpts, curr_descs)
         return ptp, ctp, dmatches
 
     def detect_kpts(self, img: np.ndarray) -> list[np.ndarray, np.ndarray]:
@@ -102,6 +98,19 @@ class VisualOdometry():
         self.left_kpts.append(kpts)
         self.left_descs.append(descs)
         return kpts, descs
+
+    def track_kpts(
+        self,
+        prev_img: np.ndarray, curr_img: np.ndarray,
+        prev_kpts: np.ndarray, prev_descs: np.ndarray,
+        curr_kpts: np.ndarray, curr_descs: np.ndarray
+    ) -> list[np.ndarray, np.ndarray, np.ndarray]:
+        ptp, ctp, dmatches = self.tracker.track(
+            prev_img=prev_img, curr_img=curr_img,
+            prev_kpts=prev_kpts, prev_descs=prev_descs,
+            curr_kpts=curr_kpts, curr_descs=curr_descs
+        )
+        return ptp, ctp, dmatches
 
     def load_img(self, i: int) -> np.ndarray:
         return self.left_imgs[i]
@@ -239,9 +248,10 @@ class StereoVisualOdometry(VisualOdometry):
             self.disparities = [None]
 
     def estimate_pose(self):
-        kpt_proc_time = 0.0
+        dtc_proc_time = 0.0
+        trc_proc_time = 0.0
         stereo_proc_time = 0.0
-        estimate_proc_time = 0.0
+        opt_proc_time = 0.0
 
         # Load images
         left_prev_img, _ = self.load_img(self.cnt)
@@ -253,13 +263,19 @@ class StereoVisualOdometry(VisualOdometry):
         else:
             self.disparities.append(None)
 
-        # Detect and track keypoints
+        # Detect keypoints
         s_time = time.time()
-        prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
-        kpt_proc_time = time.time() - s_time
+        curr_kpts, curr_descs = self.detect_kpts(left_curr_img)
+        dtc_proc_time = time.time() - s_time
+
+        # Track keypoints
+        s_time = time.time()
+        prev_kpts, curr_kpts, dmatches = self.track_kpts(left_prev_img, left_curr_img, self.left_kpts[self.cnt], self.left_descs[self.cnt], curr_kpts, curr_descs)
+        trc_proc_time = time.time() - s_time
+
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-            self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
+            self.each_proc_times.append({'detect': dtc_proc_time, 'track': trc_proc_time, 'stereo': stereo_proc_time, 'optimization': opt_proc_time})
             return None
 
         # Find the corresponding points in the right image
@@ -267,7 +283,7 @@ class StereoVisualOdometry(VisualOdometry):
         prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
-            self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
+            self.each_proc_times.append({'detect': dtc_proc_time, 'track': trc_proc_time, 'stereo': stereo_proc_time, 'optimization': opt_proc_time})
             return None
 
         # Calculate essential matrix and the correct pose
@@ -277,11 +293,11 @@ class StereoVisualOdometry(VisualOdometry):
         # Estimate pose
         s_time = time.time()
         transf = self.estimator.estimate(l_prev_pts, l_curr_pts, prev_3d_pts, curr_3d_pts)
-        estimate_proc_time = time.time() - s_time
+        opt_proc_time = time.time() - s_time
 
         self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
 
-        self.each_proc_times.append({'kpt': kpt_proc_time, 'stereo': stereo_proc_time, 'optimization': estimate_proc_time})
+        self.each_proc_times.append({'detect': dtc_proc_time, 'track': trc_proc_time, 'stereo': stereo_proc_time, 'optimization': opt_proc_time})
         return transf
 
     def find_right_kpts(

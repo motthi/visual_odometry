@@ -63,10 +63,12 @@ if __name__ == "__main__":
     print(f"\tRPE(rot)\t{np.mean(rpe_rots)*180.0/np.pi}+/-{np.std(rpe_rots)*180.0/np.pi} [deg]")
 
     # Calculate processing time
-    kpt_proc_time = 0.0
+    detect_proc_time = 0.0
+    track_proc_time = 0.0
     stereo_proc_time = 0.0
     optmize_proc_time = 0.0
-    kpt_times = {}
+    detect_times = {}
+    track_times = {}
     stereo_times = {}
     optmize_times = {}
     for i, idx in enumerate(range(start, last - step, step)):
@@ -74,28 +76,33 @@ if __name__ == "__main__":
             continue
         data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
         proc_times = data['each_process_times'].item()
-        kpt_proc_time += proc_times['kpt']
+        detect_proc_time += proc_times['detect']
+        track_proc_time += proc_times['track']
         stereo_proc_time += proc_times['stereo']
         optmize_proc_time += proc_times['optimization']
-        kpt_times[f"{i:04d}"] = proc_times['kpt']
+        detect_times[f"{i:04d}"] = proc_times['detect']
+        track_times[f"{i:04d}"] = proc_times['track']
         stereo_times[f"{i:04d}"] = proc_times['stereo']
         optmize_times[f"{i:04d}"] = proc_times['optimization']
-    kpt_proc_time = kpt_proc_time / (i + 1)
+    detect_proc_time = detect_proc_time / (i + 1)
+    track_proc_time = track_proc_time / (i + 1)
     stereo_proc_time = stereo_proc_time / (i + 1)
     optmize_proc_time = optmize_proc_time / (i + 1)
 
-    proc_times['kpt'] = kpt_times
+    proc_times['detect'] = detect_times
+    proc_times['track'] = track_times
     proc_times['stereo'] = stereo_times
     proc_times['optimization'] = optmize_times
-    proc_times['kpt_mean'] = kpt_proc_time
+    proc_times['kpt_mean'] = detect_proc_time
     proc_times['stereo_mean'] = stereo_proc_time
     proc_times['optimization_mean'] = optmize_proc_time
 
     print(f"\nProcessing time")
-    print(f"  Total\t\t: {kpt_proc_time + stereo_proc_time + optmize_proc_time:.5f} [s]")
-    print(f"  Keypoint\t: {kpt_proc_time:.5f} [s]")
-    print(f"  Stereo\t: {stereo_proc_time:.5f} [s]")
-    print(f"  Optimize\t: {optmize_proc_time:.5f} [s]")
+    print(f"  Total\t\t: {detect_proc_time + stereo_proc_time + optmize_proc_time:.5f} [s]")
+    print(f"  Keypoint detection\t: {detect_proc_time:.5f} [s]")
+    print(f"  Keypoint tracking\t: {track_proc_time:.5f} [s]")
+    print(f"  Stereo matching\t: {stereo_proc_time:.5f} [s]")
+    print(f"  Optimization\t\t: {optmize_proc_time:.5f} [s]")
 
     results['trj_len'] = trj_len
     results['accuracy'] = accuracy
