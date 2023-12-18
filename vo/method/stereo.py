@@ -11,7 +11,7 @@ class StereoVoEstimator(VoEstimator):
     def __init__(self, P_l):
         self.P_l = P_l
 
-    def image_reprojection_residuals(
+    def residuals_2d_to_3d(
         self,
         transf: np.ndarray,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
@@ -41,18 +41,16 @@ class StereoVoEstimator(VoEstimator):
         residuals = np.vstack([q1_pred - prev_pixes.T, q2_pred - curr_pixes.T]).flatten()  # Calculate the residuals
         return residuals
 
-    def point_reprojection_residuals(
+    def residuals_3d_to_3d(
         self,
         transf: np.ndarray,
         prev_pixes: np.ndarray, curr_pixes: np.ndarray,
         prev_pts: np.ndarray, curr_pts: np.ndarray,
     ) -> np.ndarray:
         transf_inv = np.linalg.inv(transf)
-        q1_pred = curr_pts.T @ transf.T
-        q1_pred = q1_pred[:, :3].T / q1_pred[:, 3]
-        q2_pred = prev_pts.T @ transf_inv.T
-        q2_pred = q2_pred[:, :3].T / q2_pred[:, 3]
-        residuals = np.vstack([q1_pred - prev_pts[:3, :], q2_pred - curr_pts[:3, :]]).flatten()
+        q1_pred = prev_pts.T @ transf.T
+        q2_pred = curr_pts.T @ transf_inv.T
+        residuals = np.vstack([q1_pred[:, :3].T - curr_pts[:3, :], q2_pred[:, :3].T - prev_pts[:3, :]]).flatten()
         return residuals
 
 
@@ -61,7 +59,7 @@ class LmBasedEstimator(StereoVoEstimator):
         super().__init__(P_l)
         self.max_iter = max_iter
         self.iter_cnts = []
-        self.min_erros = []
+        self.min_errors = []
         self.manifold = manifold
         if manifold == 'rpy':
             self.optimize_function = self.rpy_optimize_cost
@@ -80,6 +78,8 @@ class LmBasedEstimator(StereoVoEstimator):
         if prev_pixes.shape[0] < 3:
             return None
 
+        prev_pts = np.vstack((prev_pts.T, np.ones((1, prev_pts.shape[0]))))
+        curr_pts = np.vstack((curr_pts.T, np.ones((1, curr_pts.shape[0]))))
         # Initialize the min_error and early_termination counter
         min_error = float('inf')
         early_termination = 0
@@ -90,11 +90,12 @@ class LmBasedEstimator(StereoVoEstimator):
             sample_idx = np.random.choice(range(prev_pixes.shape[0]), 20)
 
             # Perform least squares optimization
-            opt_res = self.optimize_pose(xi_init, prev_pixes[sample_idx], curr_pixes[sample_idx], prev_pts[sample_idx], curr_pts[sample_idx])
+            opt_res = self.optimize_pose(xi_init, prev_pixes[sample_idx], curr_pixes[sample_idx], prev_pts[:3, sample_idx].T, curr_pts[:3, sample_idx].T)
+            sample_T = self.to_homogeneous(opt_res)
 
             # Calculate the error for the optimized transformation
-            res = self.optimize_function(opt_res.x, prev_pixes, curr_pixes, prev_pts, curr_pts)
-            res = res.reshape((prev_pts.shape[0] * 2, -1))
+            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[1] * 2, -1))
             err = np.sum(np.linalg.norm(res, axis=1))
 
             # Check if the error is less the the current min error. Save the result if it is
@@ -109,7 +110,7 @@ class LmBasedEstimator(StereoVoEstimator):
                 # If we have not fund any better result in early_termination_threshold iterations
                 break
         self.iter_cnts.append(cnt)
-        self.min_erros.append(min_error)
+        self.min_errors.append(min_error)
 
         T = self.to_homogeneous(out_pose)
         return T
@@ -125,12 +126,12 @@ class LmBasedEstimator(StereoVoEstimator):
             t = t_SE3.trans
         return form_transf(R, t)
 
-    def optimize_pose(self, xi_init, prev_pixes, curr_pixes, prev_pts, curr_pts):
+    def optimize_pose(self, xi_init: np.ndarray, prev_pixes: np.ndarray, curr_pixes: np.ndarray, prev_pts: np.ndarray, curr_pts: np.ndarray):
         opt_res = least_squares(
             self.optimize_function,                             # Function to minimize
             xi_init,                                           # Initial guess
             method='lm',                                        # Levenberg-Marquardt algorithm
-            max_nfev=100,                                       # Max number of function evaluations
+            max_nfev=200,                                       # Max number of function evaluations
             args=(prev_pixes, curr_pixes, prev_pts, curr_pts)   # Additional arguments to pass to the function
         )
         return opt_res
@@ -158,7 +159,7 @@ class LmBasedEstimator(StereoVoEstimator):
         ones = np.ones((prev_pixes.shape[0], 1))
         prev_pts = np.hstack([prev_pts, ones]).T
         curr_pts = np.hstack([curr_pts, ones]).T
-        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
+        return self.residuals_3d_to_3d(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
 
     def rpy_optimize_cost(
         self,
@@ -185,12 +186,12 @@ class LmBasedEstimator(StereoVoEstimator):
         ones = np.ones((prev_pixes.shape[0], 1))
         prev_pts = np.hstack([prev_pts, ones]).T
         curr_pts = np.hstack([curr_pts, ones]).T
-        return self.image_reprojection_residuals(transf, prev_pixes, curr_pixes, prev_pts, curr_pts)
+        return self.residuals_3d_to_3d(transf, None, None, prev_pts, curr_pts)
 
     def save_results(self, src: str):
         self.iter_cnts = np.array(self.iter_cnts)
-        self.min_erros = np.array(self.min_erros)
-        np.savez(src, manifold=self.manifold, iter_cnts=self.iter_cnts, min_erros=self.min_erros)
+        self.min_errors = np.array(self.min_errors)
+        np.savez(src, manifold=self.manifold, iter_cnts=self.iter_cnts, min_errors=self.min_errors)
 
 
 class SvdBasedEstimator(StereoVoEstimator):
@@ -275,7 +276,7 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             sample_T = self.svd_based_estimate(prev_pts[:, sample_idx], curr_pts[:, sample_idx])
 
             # Error estimation
-            res = self.point_reprojection_residuals(sample_T, prev_pixes, curr_pixes, prev_pts, curr_pts)
+            res = self.residuals_3d_to_3d(sample_T, None, None, prev_pts, curr_pts)
             res = res.reshape((prev_pts.shape[1] * 2, -1))
             error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
             error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
@@ -287,11 +288,11 @@ class RansacSvdBasedEstimator(SvdBasedEstimator):
             inlier_T = self.svd_based_estimate(prev_pts[:, inlier_idx], curr_pts[:, inlier_idx])
 
             # Count up the number of inliers
-            res = self.point_reprojection_residuals(inlier_T, prev_pixes[inlier_idx], curr_pixes[inlier_idx], prev_pts[:, inlier_idx], curr_pts[:, inlier_idx])
-            res = res.reshape((len(inlier_idx) * 2, -1))
-            error_pred = np.linalg.norm(res[:len(inlier_idx), :], axis=1)  # Reprojection error against i to i-1
-            error_curr = np.linalg.norm(res[len(inlier_idx):, :], axis=1)  # Reprojection error against i-1 to i
-            inlier_idx_ = np.where(np.logical_and(error_pred < self.inlier_thd, error_curr < self.inlier_thd))[0]
+            res = self.residuals_3d_to_3d(inlier_T, None, None, prev_pts, curr_pts)
+            res = res.reshape((prev_pts.shape[1] * 2, -1))
+            error_pred_flag = np.all(res[:prev_pts.shape[1], :] < self.inlier_thd, axis=1)
+            error_curr_flag = np.all(res[prev_pts.shape[1]:, :] < self.inlier_thd, axis=1)
+            inlier_idx_ = np.where(np.logical_and(error_pred_flag, error_curr_flag))[0]
             if len(inlier_idx_) > max_inlier_num:
                 max_inlier_num = len(inlier_idx_)
                 T = inlier_T
