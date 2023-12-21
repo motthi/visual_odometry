@@ -11,6 +11,7 @@ from vo.utils import poses_to_trans_quats, trans_quats_to_poses, save_trajectory
 from vo.method.stereo import *
 from vo.datasets.aki import AkiDataset
 from vo.datasets.madmax import MadmaxDataset
+from vo.datasets.kitti import KittiDataset
 
 DATASET_DIR = os.environ['DATASET_DIR']
 
@@ -25,11 +26,15 @@ if __name__ == "__main__":
     parser.add_argument('--save_dir', help='Save directory', default="vo_results/test")
     args = parser.parse_args()
 
-    data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
     if args.dataset == "AKI":
-        dataset = AkiDataset(data_dir, start=args.start, last=args.last, step=args.step)
-    else:
-        dataset = MadmaxDataset(data_dir, start=args.start, last=args.last, step=args.step)
+        data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
+        dataset = AkiDataset(f"{DATASET_DIR}/{args.dataset}/{args.subdir}", start=args.start, last=args.last, step=args.step)
+    elif args.dataset == "MADMAX":
+        data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
+        dataset = MadmaxDataset(f"{DATASET_DIR}/{args.dataset}/{args.subdir}", start=args.start, last=args.last, step=args.step)
+    elif args.dataset == "KITTI":
+        dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", args.subdir, start=args.start, last=args.last, step=args.step)
+        data_dir = f"{DATASET_DIR}/{args.dataset}/sequences/{int(args.subdir):02d}"
 
     print(f"Command line arguments")
     print(f"\tDataset\t\t\t: {args.dataset}")

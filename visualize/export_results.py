@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from vo.datasets.aki import AkiDataset
 from vo.datasets.madmax import MadmaxDataset
+from vo.datasets.kitti import KittiDataset
 from vo.draw import draw_disparties, draw_detected_kpts, draw_matched_kpts, draw_matched_kpts_coloring_distance, draw_matched_kpts_two_imgs
 from vo.utils import create_save_directories
 from tqdm import tqdm
@@ -31,6 +32,7 @@ if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
     result_dir = f"{data_dir}/vo_results/test"
 
+    print(args.dataset in ["AKI", "MADMAX"])
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
         exit()
@@ -44,6 +46,9 @@ if __name__ == "__main__":
         dataset = AkiDataset(data_dir, start=start, last=last, step=step)
     elif args.dataset == "MADMAX":
         dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
+    elif args.dataset == "KITTI":
+        seq = args.subdir.split("/")[-1]
+        dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", seq, start=start, last=last, step=step)
     dataset.camera_params()
 
     dm_dist_range = dmatch_dist_range(result_dir)
