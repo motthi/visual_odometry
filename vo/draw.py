@@ -10,8 +10,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.spatial.transform import Rotation as R
 
 x_idx = 0
-y_idx = 1
-z_idx = 2
+y_idx = 2
+z_idx = 1
 axis_label = ["x [m]", "y [m]", "z [m]"]
 
 

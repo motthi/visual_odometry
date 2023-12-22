@@ -1,6 +1,9 @@
 import cv2
 import json
+import glob
+import numbers
 import pykitti
+import warnings
 import numpy as np
 from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
@@ -8,37 +11,32 @@ from vo.datasets import ImageDataset
 
 
 class KittiDataset(ImageDataset):
-    def __init__(self, dataset_dir: str, seq: str, start: int = 0, last: int = None, step: int = 1):
-        if last is not None:
-            frame = range(start, last, step)
-        else:
-            self.dataset = pykitti.odometry(f"{dataset_dir}", sequence=f"{int(seq):02d}")
-            last = len(self.dataset)
-            frame = range(start, last, step)
-        self.dataset = pykitti.odometry(f"{dataset_dir}", sequence=f"{int(seq):02d}", frames=frame)
+    def __init__(self, dataset_dir: str, seq: int, start: int = 0, last: int = None, step: int = 1):
+        self.l_img_srcs = sorted(glob.glob(f"{dataset_dir}/sequences/{seq:02d}/image_2/*.png"))
+        self.r_img_srcs = sorted(glob.glob(f"{dataset_dir}/sequences/{seq:02d}/image_3/*.png"))
+
+        if start < 0:
+            warnings.warn(f"start={start} is negative")
+            start = 0
+        if start > len(self.l_img_srcs):
+            warnings.warn(f"start={start} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+            start = 0
+        if last is not None and last > len(self.l_img_srcs):
+            warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+            last = None
+        if last is None or not isinstance(last, numbers.Integral):
+            last = len(self.l_img_srcs)
         self.start = start
-        if last is None:
-            self.last = len(self.dataset)
-        else:
-            self.last = last
+        self.step = step
+        self.last = last
+
+        self.dataset = pykitti.odometry(f"{dataset_dir}", sequence=f"{seq:02d}", frames=range(start, last, step))
         self.step = step
         self.lcam_params, self.rcam_params = self.camera_params()
-        self.l_imgs = []
-        self.r_imgs = []
+        self.l_img_srcs = self.l_img_srcs[start:last:step]
+        self.r_img_srcs = self.r_img_srcs[start:last:step]
+        self.load_img_info()
         self.name = "KITTI"
-
-    def load_imgs(self):
-        self.l_imgs = []
-        self.r_imgs = []
-        for limg, rimg in tqdm(zip(self.dataset.cam2, self.dataset.cam3), total=len(self.dataset)):
-            self.l_imgs.append(cv2.cvtColor(np.array(limg), cv2.COLOR_RGB2BGR))
-            self.r_imgs.append(cv2.cvtColor(np.array(rimg), cv2.COLOR_RGB2BGR))
-        return self.l_imgs, self.r_imgs
-
-    def load_img(self, idx):
-        if len(self.l_imgs) == 0:
-            self.load_imgs()
-        return self.l_imgs[idx], self.r_imgs[idx]
 
     def read_captured_poses_quats(self):
         ts, t, r = self.read_all_poses_quats()

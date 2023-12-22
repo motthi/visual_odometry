@@ -25,6 +25,7 @@ class AkiDataset(ImageDataset):
             self.last = len(self.l_img_srcs)
         self.l_img_srcs = self.l_img_srcs[start:last:step]
         self.r_img_srcs = self.r_img_srcs[start:last:step]
+        self.load_img_info()
         self.name = "AKI"
 
     def camera_params(self) -> list[dict]:
@@ -38,9 +39,9 @@ class AkiDataset(ImageDataset):
         # P_r = np.array(data["right"]["projection"]).reshape(3, 4)
         P_l = K_l @ E_l
         P_r = K_r @ E_r
-        self.lc_params = {'intrinsic': K_l, 'extrinsic': E_l, 'projection': P_l}
-        self.rc_params = {'intrinsic': K_r, 'extrinsic': E_r, 'projection': P_r}
-        return self.lc_params, self.rc_params
+        self.lcam_params = {'intrinsic': K_l, 'extrinsic': E_l, 'projection': P_l}
+        self.rcam_params = {'intrinsic': K_r, 'extrinsic': E_r, 'projection': P_r}
+        return self.lcam_params, self.rcam_params
 
     def read_captured_poses_quats(self) -> list[np.ndarray]:
         """Load the timestamps, translations and quaternions when the images were captured.

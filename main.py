@@ -33,7 +33,7 @@ if __name__ == "__main__":
         data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
         dataset = MadmaxDataset(f"{DATASET_DIR}/{args.dataset}/{args.subdir}", start=args.start, last=args.last, step=args.step)
     elif args.dataset == "KITTI":
-        dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", args.subdir, start=args.start, last=args.last, step=args.step)
+        dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", int(args.subdir), start=args.start, last=args.last, step=args.step)
         data_dir = f"{DATASET_DIR}/{args.dataset}/sequences/{int(args.subdir):02d}"
 
     print(f"Command line arguments")
@@ -53,18 +53,18 @@ if __name__ == "__main__":
     img_timestamps, img_trans, img_quats = dataset.read_captured_poses_quats()
     gt_poses = trans_quats_to_poses(gt_quats, gt_trans)
     img_poses = trans_quats_to_poses(img_quats, img_trans)
-    l_imgs, r_imgs = dataset.load_imgs()
-    num_img = len(l_imgs)
+    # l_imgs, r_imgs = dataset.load_imgs()
+    num_img = dataset.img_num
 
     print(f"Dataset directory\t: {data_dir}")
     print(f"Save directory\t\t: {save_dir}")
-    print(f"Number of images\t: {num_img}")
+    # print(f"Number of images\t: {num_img}")
 
     # Feature detector
     # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
+    # detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
     # detector = ShiTomashiCornerDetector()
-    # detector = cv2.ORB_create()
+    detector = cv2.ORB_create(nfeatures=3000)
     # detector = cv2.AKAZE_create()
 
     # Feature descriptor
@@ -74,29 +74,29 @@ if __name__ == "__main__":
     # descriptor = cv2.xfeatures2d.SURF_create()
 
     # Tracker
-    max_pts_dist = 50
+    max_pts_dist = 150
     tracker = BruteForceTracker(max_pts_dist, cv2.NORM_HAMMING, cross_check=True)
     # tracker = FlannTracker()
     # tracker = OpticalFlowTracker(win_size=(100, 100))
 
     # Estimator
-    inlier_thd = 0.01
+    inlier_thd = 0.1
     max_iter = 100
     # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
-    # estimator = LmBasedEstimator(dataset.lcam_params['projection'])
+    estimator = LmBasedEstimator(dataset.lcam_params['projection'])
     # estimator = RansacLmEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
     # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
-    estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
+    # estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
 
     # Image masking
     img_mask = None
+    # D = 50
+    img_mask = np.full(dataset.img_shape[: 2], 255, dtype=np.uint8)
     # img_mask[300:, :] = 0
-    D = 50
-    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
-    img_mask[: D, :] = 0
-    img_mask[-100:, :] = 0
-    img_mask[:, : D] = 0
-    img_mask[:, -D:] = 0
+    # img_mask[: D, :] = 0
+    # img_mask[-100:, :] = 0
+    # img_mask[:, : D] = 0
+    # img_mask[:, -D:] = 0
 
     # Set initial pose
     rot = R.from_quat(img_quats[0]).as_matrix()
@@ -105,19 +105,23 @@ if __name__ == "__main__":
 
     # vo = MonocularVisualOdometry(dataset.lcam_params, l_imgs, detector, descriptor, tracker, estimator, img_mask=img_mask)
     vo = StereoVisualOdometry(
-        dataset.lcam_params, dataset.rcam_params,
-        l_imgs, r_imgs,
+        dataset,
         detector, descriptor, tracker=tracker,
         estimator=estimator,
         img_mask=img_mask,
-        # use_disp=True
+        use_disp=True,
+        save_dir=f"{save_dir}"
     )
+
+    if os.path.exists(f"{save_dir}/npz"):
+        shutil.rmtree(f"{save_dir}/npz")
+    os.makedirs(f"{save_dir}/npz", exist_ok=True)
 
     est_poses = vo.estimate_all_poses(init_pose, num_img)
     est_quats = np.array([R.from_matrix(pose[0:3, 0:3]).as_quat() for pose in est_poses])
     est_trans = np.array([np.array(pose[0:3, 3]).T for pose in est_poses])
 
-    vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
+    # vo.save_results(dataset.last, dataset.start, dataset.step, f"{save_dir}/npz")
     vo.estimator.save_results(f"{save_dir}/estimator_result.npz")
     dataset.save_info(f"{save_dir}/dataset_info.json")
     save_trajectory(f"{save_dir}/estimated_trajectory.txt", img_timestamps, est_trans, est_quats)

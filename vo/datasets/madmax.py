@@ -22,6 +22,7 @@ class MadmaxDataset(ImageDataset):
             self.last = len(self.l_img_srcs)
         self.l_img_srcs = self.l_img_srcs[start:last:step]
         self.r_img_srcs = self.r_img_srcs[start:last:step]
+        self.load_img_info()
         self.name = "MADMAX"
 
     def camera_params(self) -> list[dict]:
@@ -57,22 +58,28 @@ class MadmaxDataset(ImageDataset):
 
         T_base2lcam = T_base2imu @ T_imu2lcam
         T_base2rcam = T_base2lcam @ T_lcam2rcam
+        T_imu2rcam = T_imu2lcam @ T_lcam2rcam
+        from vo.draw import draw_system_reference_frames
+        draw_system_reference_frames([T_base2lcam, T_base2rcam], ["lcam", "rcam"], scale=0.3)
 
-        # T_base2lcam = np.linalg.inv(T_base2lcam)
-        # T_base2rcam = np.linalg.inv(T_base2rcam)
+        T_base2lcam = np.linalg.inv(T_base2lcam)
+        T_base2rcam = np.linalg.inv(T_base2rcam)
 
-        # K_l = np.array(lcam_info['K']).reshape(3, 3)
-        # K_r = np.array(rcam_info['K']).reshape(3, 3)
-        K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
-        K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
+        K_l = np.array(lcam_info['K']).reshape(3, 3)
+        K_r = np.array(rcam_info['K']).reshape(3, 3)
+        # K_l = np.array([lcam_info['P']]).reshape(3, 4)[:, :3]
+        # K_r = np.array([rcam_info['P']]).reshape(3, 4)[:, :3]
         E_l = T_base2lcam[:3, :]
         E_r = T_base2rcam[:3, :]
-        # P_l = K_l @ E_l
-        # P_r = K_r @ E_r
-        P_l = np.array([lcam_info['P']]).reshape(3, 4)  # You need to align estimated trajectory if you use this
-        P_r = np.array([rcam_info['P']]).reshape(3, 4)
+        P_l = K_l @ E_l
+        P_r = K_r @ E_r
+        # P_l = np.array([lcam_info['P']]).reshape(3, 4)  # You need to align estimated trajectory if you use this
+        # P_r = np.array([rcam_info['P']]).reshape(3, 4)
         D_l = np.array(lcam_info['D'])
         D_r = np.array(rcam_info['D'])
+
+        # plt.show()
+        # exit()
 
         self.lcam_params = {
             'intrinsic': K_l,
@@ -91,18 +98,18 @@ class MadmaxDataset(ImageDataset):
     def read_captured_poses_quats(self) -> list[np.ndarray]:
         poses = {}
         ts = []
-        # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
-        #     lines = f.readlines()
-        # for line in lines[14:]:
-        #     data = line.split(",")
-        #     poses[f'{data[0]}'] = [float(data[3]), float(data[4]), float(data[5]), float(data[10]), float(data[11]), float(data[12]), float(data[9])]
-        #     ts.append(float(data[0]))
-        with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
+        with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
+            poses[f'{data[0]}'] = [float(data[3]), float(data[4]), float(data[5]), float(data[10]), float(data[11]), float(data[12]), float(data[9])]
             ts.append(float(data[0]))
-            poses[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
+        # with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
+        #     lines = f.readlines()
+        # for line in lines[14:]:
+        #     data = line.split(",")
+        #     ts.append(float(data[0]))
+        #     poses[f'{data[0]}'] = [float(data[1]), float(data[2]), float(data[3]), float(data[8]), float(data[9]), float(data[10]), float(data[7])]
         ts = np.array(ts, float)
 
         timestamps = []
@@ -124,20 +131,20 @@ class MadmaxDataset(ImageDataset):
         timestamps = []
         trans = []
         quats = []
-        # with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
-        #     lines = f.readlines()
-        # for line in lines[14:]:
-        #     data = line.split(",")
-        #     timestamps.append(float(data[0]))
-        #     trans.append([float(data[3]), float(data[4]), float(data[5])])
-        #     quats.append([float(data[10]), float(data[11]), float(data[12]), float(data[9])])   # x, y, z, w
-        with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
+        with open(f"{self.dataset_dir}/ground_truth/gt_5DoF_gnss.csv") as f:
             lines = f.readlines()
         for line in lines[14:]:
             data = line.split(",")
             timestamps.append(float(data[0]))
-            trans.append([float(data[1]), float(data[2]), float(data[3])])
-            quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[7])])   # x, y, z, w
+            trans.append([float(data[3]), float(data[4]), float(data[5])])
+            quats.append([float(data[10]), float(data[11]), float(data[12]), float(data[9])])   # x, y, z, w
+        # with open(f"{self.dataset_dir}/ground_truth/gt_6DoF_gnss_and_imu.csv") as f:
+        #     lines = f.readlines()
+        # for line in lines[14:]:
+        #     data = line.split(",")
+        #     timestamps.append(float(data[0]))
+        #     trans.append([float(data[1]), float(data[2]), float(data[3])])
+        #     quats.append([float(data[8]), float(data[9]), float(data[10]), float(data[7])])   # x, y, z, w
         timestamps = np.array(timestamps, float)
         trans = np.array(trans, dtype=np.float32)
         quats = np.array(quats, dtype=np.float32)
