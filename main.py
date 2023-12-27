@@ -45,7 +45,7 @@ if __name__ == "__main__":
     print(f"\tStep\t\t\t: {args.step}")
     print(f"\tSave directory\t\t: {args.save_dir}\n")
 
-    save_dir = f"{data_dir}/{args.save_dir}"
+    save_dir = f"{data_dir}/vo_results/{args.save_dir}"
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
