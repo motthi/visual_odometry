@@ -27,10 +27,11 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Export VO results.')
     parser.add_argument('dataset', help='Dataset name')
     parser.add_argument('subdir', help='Subdirectory path')
+    parser.add_argument('--saved_dir', default='test', help='Save directory')
     args = parser.parse_args()
 
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    result_dir = f"{data_dir}/vo_results/test"
+    result_dir = f"{data_dir}/vo_results/{args.saved_dir}"
 
     print(args.dataset in ["AKI", "MADMAX"])
     if not os.path.exists(f"{data_dir}"):

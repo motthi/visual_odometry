@@ -94,6 +94,7 @@ if __name__ == "__main__":
     proc_times['stereo'] = stereo_times
     proc_times['optimization'] = optmize_times
     proc_times['kpt_mean'] = detect_proc_time
+    proc_times['track_mean'] = track_proc_time
     proc_times['stereo_mean'] = stereo_proc_time
     proc_times['optimization_mean'] = optmize_proc_time
 

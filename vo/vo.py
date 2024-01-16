@@ -226,7 +226,7 @@ class StereoVisualOdometry(VisualOdometry):
         self,
         left_camera_params, right_camera_params, left_imgs, right_imgs,
         detector, descriptor, tracker: KeyPointTracker, estimator: StereoVoEstimator, img_mask=None,
-        num_disp: int = 50,
+        min_disp: int = 10, max_disp: int = 50,
         method: str = "svd", use_disp: bool = False
     ) -> None:
         super().__init__(left_camera_params, left_imgs, detector, descriptor, tracker, estimator, img_mask)
@@ -242,10 +242,12 @@ class StereoVisualOdometry(VisualOdometry):
         # Initial processing
         l_img, r_img = self.load_img(self.cnt)
         if use_disp:
-            self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=num_disp, blockSize=10)
+            self.disparity = cv2.StereoSGBM_create(minDisparity=0, numDisparities=max_disp, blockSize=10)
             self.disparities = [np.divide(self.disparity.compute(l_img, r_img).astype(np.float32), 16)]
         else:
             self.disparities = [None]
+        self.min_disp = min_disp
+        self.max_disp = max_disp
 
     def estimate_pose(self):
         dtc_proc_time = 0.0
@@ -303,8 +305,7 @@ class StereoVisualOdometry(VisualOdometry):
     def find_right_kpts(
             self,
             prev_kpts: list[cv2.KeyPoint], curr_kpts: list[cv2.KeyPoint],
-            prev_disps: np.ndarray, curr_disps: np.ndarray, matches: list[cv2.DMatch],
-            min_disp: float = 10.0, max_disp: float = 50.0
+            prev_disps: np.ndarray, curr_disps: np.ndarray, matches: list[cv2.DMatch]
     ) -> list[list[cv2.KeyPoint], list[cv2.KeyPoint], list[cv2.DMatch], list[np.ndarray], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
         """Find correspond points in the right image and returns keypoints and descriptors in left and right image
 
@@ -325,14 +326,14 @@ class StereoVisualOdometry(VisualOdometry):
             q_pts = np.array([q_.pt for q_ in q])
             q_idx = q_pts.astype(int)
             disp = disp.T[q_idx[:, 0], q_idx[:, 1]]
-            return disp, np.where(np.logical_and(min_disp < disp, disp < max_disp), True, False)
+            return disp, np.where(np.logical_and(self.min_disp < disp, disp < self.max_disp), True, False)
 
         def get_disps(q: list, cnt):
             q_pts = np.array([q_.pt for q_ in q])
             disps = self.stereo_match(q_pts, cnt)
             masks = []
             for disp in disps:
-                masks.append(np.logical_and(min_disp < disp, disp < max_disp))
+                masks.append(np.logical_and(self.min_disp < disp, disp < self.max_disp))
             return np.array(disps), np.array(masks)
 
         # Get the disparity's for the feature points and mask for min_disp & max_disp

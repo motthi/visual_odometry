@@ -52,8 +52,8 @@ class MadmaxDataset(ImageDataset):
         E_r = np.linalg.inv(T_base2rcam)[:3, :]
         P_l = K_l @ E_l
         P_r = K_r @ E_r
-        # P_l = np.array([lcam_info['P']]).reshape(3, 4)  # You need to align estimated trajectory if you use this
-        # P_r = np.array([rcam_info['P']]).reshape(3, 4)
+        P_l = np.array([lcam_info['P']]).reshape(3, 4)  # You need to align estimated trajectory if you use this
+        P_r = np.array([rcam_info['P']]).reshape(3, 4)
 
         self.lcam_params = {
             'intrinsic': K_l,
