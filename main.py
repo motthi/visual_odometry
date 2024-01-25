@@ -83,7 +83,6 @@ if __name__ == "__main__":
     # Stereo matching
     use_disp = config_loader.data['use_disp']
     max_disp = config_loader.data['max_disp']
-    use_disp = True
 
     # Set initial pose
     rot = R.from_quat(img_quats[0]).as_matrix()
