@@ -12,6 +12,7 @@ from vo.method.stereo import *
 from vo.datasets.aki import AkiDataset
 from vo.datasets.madmax import MadmaxDataset
 from vo.datasets.kitti import KittiDataset
+from vo.config import *
 
 DATASET_DIR = os.environ['DATASET_DIR']
 
@@ -23,15 +24,17 @@ if __name__ == "__main__":
     parser.add_argument('--start', type=int, help='Start index of images', default=0)
     parser.add_argument('--last', type=int, help='Last index of images', default=None)
     parser.add_argument('--step', type=int, help='Step of images', default=1)
-    parser.add_argument('--save_dir', help='Save directory', default="vo_results/test")
+    parser.add_argument('--save_dir', help='Save directory', default="test")
     args = parser.parse_args()
 
     if args.dataset == "AKI":
         data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
         dataset = AkiDataset(f"{DATASET_DIR}/{args.dataset}/{args.subdir}", start=args.start, last=args.last, step=args.step)
+        config_loader = AkiConfigLoader()
     elif args.dataset == "MADMAX":
         data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
         dataset = MadmaxDataset(f"{DATASET_DIR}/{args.dataset}/{args.subdir}", start=args.start, last=args.last, step=args.step)
+        config_loader = MadmaxConfigLoader()
     elif args.dataset == "KITTI":
         dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", args.subdir, start=args.start, last=args.last, step=args.step)
         data_dir = f"{DATASET_DIR}/{args.dataset}/sequences/{int(args.subdir):02d}"
@@ -60,43 +63,27 @@ if __name__ == "__main__":
     print(f"Save directory\t\t: {save_dir}")
     print(f"Number of images\t: {num_img}")
 
-    # Feature detector
-    # detector = cv2.FastFeatureDetector_create()
-    detector = HarrisCornerDetector(blocksize=5, ksize=5, thd=0.01)
-    # detector = ShiTomashiCornerDetector()
-    # detector = cv2.ORB_create()
-    # detector = cv2.AKAZE_create()
+    config_loader.set(l_imgs[0])
 
-    # Feature descriptor
-    descriptor = cv2.ORB_create()
-    # descriptor = cv2.AKAZE_create()
-    # descriptor = cv2.SIFT_create()
-    # descriptor = cv2.xfeatures2d.SURF_create()
-
-    # Tracker
-    max_pts_dist = 50
-    tracker = BruteForceTracker(max_pts_dist, cv2.NORM_HAMMING, cross_check=True)
-    # tracker = FlannTracker()
-    # tracker = OpticalFlowTracker(win_size=(100, 100))
+    img_mask = config_loader.data['img_mask']
+    detector = config_loader.data['detector']
+    descriptor = config_loader.data['descriptor']
+    tracker = config_loader.data['tracker']
 
     # Estimator
-    inlier_thd = 0.01
-    max_iter = 100
+    inlier_thd = config_loader.data['inlier_thd']
+    max_iter = config_loader.data['max_iter']
     # estimator = MonocularVoEstimator(dataset.lcam_params['intrinsic'])
     # estimator = LmBasedEstimator(dataset.lcam_params['projection'])
     # estimator = RansacLmEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
     # estimator = SvdBasedEstimator(dataset.lcam_params['projection'])
     estimator = RansacSvdBasedEstimator(dataset.lcam_params['projection'], max_iter=max_iter, inlier_thd=inlier_thd)
+    # estimator = OtsuTwoPointEstimator(dataset.lcam_params, dataset.rcam_params, max_iter=max_iter, inlier_thd=inlier_thd)
 
-    # Image masking
-    img_mask = None
-    # img_mask[300:, :] = 0
-    D = 50
-    img_mask = np.full(l_imgs[0].shape[: 2], 255, dtype=np.uint8)
-    img_mask[: D, :] = 0
-    img_mask[-100:, :] = 0
-    img_mask[:, : D] = 0
-    img_mask[:, -D:] = 0
+    # Stereo matching
+    use_disp = config_loader.data['use_disp']
+    max_disp = config_loader.data['max_disp']
+    use_disp = True
 
     # Set initial pose
     rot = R.from_quat(img_quats[0]).as_matrix()
@@ -110,7 +97,7 @@ if __name__ == "__main__":
         detector, descriptor, tracker=tracker,
         estimator=estimator,
         img_mask=img_mask,
-        # use_disp=True
+        use_disp=use_disp, max_disp=max_disp
     )
 
     est_poses = vo.estimate_all_poses(init_pose, num_img)
