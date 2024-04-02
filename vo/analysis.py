@@ -11,8 +11,8 @@ def calc_ate(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
     for gt_p, e_p in zip(gt_poses, e_poses):
         assert gt_p.shape == e_p.shape == (4, 4)
         E = np.linalg.inv(gt_p) @ e_p
-        # print(E)
         # assert np.allclose(E[:3, :3], np.eye(3))
+        # errors.append(np.linalg.norm(E[:1, 3]))
         errors.append(np.linalg.norm(E[:3, 3]))
     return np.mean(errors)
 

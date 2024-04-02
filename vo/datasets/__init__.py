@@ -40,7 +40,7 @@ class ImageDataset():
 
     def load_imgs(self):
         l_imgs, r_imgs = [], []
-        print("Loading images...")
+        # print("Loading images...")
         for i in tqdm(range(len(self.l_img_srcs))):
             l_img, r_img = self.load_img(i)
             l_imgs.append(l_img)

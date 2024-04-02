@@ -46,7 +46,7 @@ class AkiConfigLoader(ConfigLoader):
         max_iter = 84
         inlier_thd = 0.01
 
-        max_disp = 50
+        max_disp = 50   # If the image size is large, the value should be increased.    ex.900x500 -> 100
         use_disp = False
 
         self.config = {

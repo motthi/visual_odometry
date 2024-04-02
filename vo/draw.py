@@ -128,8 +128,11 @@ def draw_vo_poses(
         ax.view_init(elev=view[0], azim=view[1], roll=view[2]) if view is not None else None
     ax.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
     fig.tight_layout()
-    fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0) if save_src is not None else None
-    plt.show()
+    if save_src is not None:
+        fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0)
+        plt.close()
+    else:
+        plt.show()
 
 
 def draw_vo_poses_and_quats(
@@ -186,7 +189,7 @@ def draw_trajectory(
             ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], gt_all_trans[:, z_idx], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label=label, markersize=2)
+            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label=label, markersize=0, linewidth=2.0)
         else:
             ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], e_trans[:, z_idx], '-o', label=label, markersize=2)
     if draw_data == "all":
