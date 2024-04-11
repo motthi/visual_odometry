@@ -38,10 +38,10 @@ class ImageDataset():
         self.r_img_srcs = []
         self.lcam_params, self.rcam_params = self.camera_params()
 
-    def load_imgs(self):
+    def load_imgs(self, tqdm_leave=True):
         l_imgs, r_imgs = [], []
         # print("Loading images...")
-        for i in tqdm(range(len(self.l_img_srcs))):
+        for i in tqdm(range(len(self.l_img_srcs)), leave=tqdm_leave):
             l_img, r_img = self.load_img(i)
             l_imgs.append(l_img)
             r_imgs.append(r_img)

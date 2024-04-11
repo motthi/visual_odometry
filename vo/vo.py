@@ -41,7 +41,7 @@ class VisualOdometry():
         self.matched_curr_kpts = [None]
         self.overall_proc_times = [None]
 
-    def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int) -> list:
+    def estimate_all_poses(self, init_pose: np.ndarray, last_img_idx: int, tqdm_leave=True) -> list:
         # print(f"\nStart localization")
         warnings.simplefilter("ignore")
 
@@ -50,7 +50,7 @@ class VisualOdometry():
         self.each_proc_times = [None]
         cur_pose = init_pose
 
-        pbar = tqdm(range(1, last_img_idx))
+        pbar = tqdm(range(1, last_img_idx), leave=tqdm_leave)
         for idx in pbar:
             s_time = time.time()
             transf = self.estimate_pose()
