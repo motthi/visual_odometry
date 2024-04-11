@@ -17,7 +17,7 @@ def calc_ate(gt_poses: np.ndarray, e_poses: np.ndarray) -> float:
     return np.mean(errors)
 
 
-def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
+def calc_rpes(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
     """ Relative Pose Error for translation
     """
     assert len(gt_poses) == len(e_poses)
@@ -28,11 +28,11 @@ def calc_rpe_trans(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
         P = np.linalg.inv(e_poses[i]) @ e_poses[i + 1]
         F = np.linalg.inv(Q) @ P
         # assert np.allclose(F[:3, :3], np.eye(3))
-        errors.append(np.linalg.norm(F[:3, 3]))
+        errors.append(calc_tran(F))
     return np.array(errors)
 
 
-def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
+def calc_roes(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
     """ Relative Pose Error for rotation
     """
     assert len(gt_poses) == len(e_poses)
@@ -43,6 +43,15 @@ def calc_rpe_rot(gt_poses: np.ndarray, e_poses: np.ndarray) -> np.ndarray:
         P = np.linalg.inv(e_poses[i]) @ e_poses[i + 1]
         F = np.linalg.inv(Q) @ P
         # assert np.allclose(F[:3, :3], np.eye(3))
-        ang_r = np.arccos((np.trace(F[:3, :3]) - 1) / 2)
-        errors.append(ang_r)
+        errors.append(calc_angle(F))
     return np.array(errors)
+
+
+def calc_tran(M: np.ndarray):
+    assert M.shape == (4, 4)
+    return np.linalg.norm(M[:3, 3])
+
+
+def calc_angle(M: np.ndarray):
+    assert M.shape == (4, 4)
+    return np.arccos((np.trace(M[:3, :3]) - 1) / 2)

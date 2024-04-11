@@ -3,7 +3,7 @@ import os
 import json
 import numpy as np
 from vo.utils import load_result_poses, trajectory_length
-from vo.analysis import calc_ate, calc_rpe_rot, calc_rpe_trans
+from vo.analysis import calc_ate, calc_roes, calc_rpes
 
 DATASET_DIR = os.environ['DATASET_DIR']
 
@@ -39,8 +39,8 @@ if __name__ == "__main__":
     # Calcularate ATE and RPE
     trj_len = trajectory_length(gt_img_poses)
     ate = calc_ate(gt_img_poses, est_poses)
-    rpe_trans = calc_rpe_trans(gt_img_poses, est_poses)
-    rpe_rots = calc_rpe_rot(gt_img_poses, est_poses)
+    rpe_trans = calc_rpes(gt_img_poses, est_poses)
+    rpe_rots = calc_roes(gt_img_poses, est_poses)
 
     accuracy = {}
     rpe_ts = {}

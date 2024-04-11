@@ -27,8 +27,8 @@ if __name__ == "__main__":
     # Calcularate Absolute Trajectory Error
     trj_len = trajectory_length(gt_img_poses)
     ate = calc_ate(gt_img_poses, est_poses)
-    rpe_trans_list = calc_rpe_trans(gt_img_poses, est_poses)
-    rpe_rot_list = calc_rpe_rot(gt_img_poses, est_poses)
+    rpe_trans_list = calc_rpes(gt_img_poses, est_poses)
+    rpe_rot_list = calc_roes(gt_img_poses, est_poses)
 
     fig, axes = plt.subplots(2, 1, figsize=(10, 10), sharex=True)
     axes[0].plot(rpe_trans_list)
