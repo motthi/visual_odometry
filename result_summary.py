@@ -47,8 +47,8 @@ if __name__ == "__main__":
     rpe_rs = {}
     accuracy['ate'] = ate
     for i, (rpe_t, rpe_r) in enumerate(zip(rpe_trans, rpe_rots)):
-        rpe_ts[f"{i:04d}"] = rpe_t
-        rpe_rs[f"{i:04d}"] = rpe_r
+        rpe_ts[f"{i:05d}"] = rpe_t
+        rpe_rs[f"{i:05d}"] = rpe_r
     accuracy['rpe_trans'] = rpe_ts
     accuracy['rpe_rots'] = rpe_rs
     accuracy['rpe_trans_mean'] = np.mean(rpe_trans)
@@ -74,16 +74,16 @@ if __name__ == "__main__":
     for i, idx in enumerate(range(start, last - step, step)):
         if i == 0:
             continue
-        data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{save_dir}/npz/{idx:05d}.npz", allow_pickle=True)
         proc_times = data['each_process_times'].item()
         detect_proc_time += proc_times['detect']
         track_proc_time += proc_times['track']
         stereo_proc_time += proc_times['stereo']
         optmize_proc_time += proc_times['optimization']
-        detect_times[f"{i:04d}"] = proc_times['detect']
-        track_times[f"{i:04d}"] = proc_times['track']
-        stereo_times[f"{i:04d}"] = proc_times['stereo']
-        optmize_times[f"{i:04d}"] = proc_times['optimization']
+        detect_times[f"{i:05d}"] = proc_times['detect']
+        track_times[f"{i:05d}"] = proc_times['track']
+        stereo_times[f"{i:05d}"] = proc_times['stereo']
+        optmize_times[f"{i:05d}"] = proc_times['optimization']
     detect_proc_time = detect_proc_time / (i + 1)
     track_proc_time = track_proc_time / (i + 1)
     stereo_proc_time = stereo_proc_time / (i + 1)
@@ -114,7 +114,7 @@ if __name__ == "__main__":
     for i, idx in enumerate(range(start, last - step, step)):
         if i == 0:
             continue
-        data = np.load(f"{save_dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{save_dir}/npz/{idx:05d}.npz", allow_pickle=True)
         if data['translation'].shape != (4, 4):
             print(f"Index {i} : Failed")
             print(f"\t{dataset_data['l_img_srcs'][i-1]}")

@@ -210,7 +210,7 @@ class MonocularVisualOdometry(VisualOdometry):
         for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
             kpts = self.left_kpts[i]
             np.savez(
-                f"{base_dir}/{img_idx:04d}.npz",
+                f"{base_dir}/{img_idx:05d}.npz",
                 process_time=self.overall_proc_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],
                 descs=self.left_descs[i],
@@ -458,7 +458,7 @@ class StereoVisualOdometry(VisualOdometry):
         for i, img_idx in enumerate(range(start, last_img_idx - step, step)):
             kpts = self.left_kpts[i]
             np.savez(
-                f"{base_dir}/{img_idx:04d}.npz",
+                f"{base_dir}/{img_idx:05d}.npz",
                 process_times=self.overall_proc_times[i],
                 each_process_times=self.each_proc_times[i],
                 kpts=[[kpt.pt[0], kpt.pt[1], kpt.size, kpt.angle, kpt.response, kpt.octave, kpt.class_id] for kpt in kpts],

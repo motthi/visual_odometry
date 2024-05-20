@@ -32,7 +32,7 @@ if __name__ == "__main__":
 
     nums_kpts = []
     for i, idx in enumerate(range(start, last - step, step)):
-        data = np.load(f"{result_dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{result_dir}/npz/{idx:05d}.npz", allow_pickle=True)
         nums_kpts.append(len(data["kpts"]))
     nums_kpts = np.array(nums_kpts)
 

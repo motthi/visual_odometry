@@ -16,7 +16,7 @@ DATASET_DIR = os.environ['DATASET_DIR']
 def dmatch_dist_range(dir):
     dmatch_dists = []
     for idx in range(start + step, last - step, step):
-        data = np.load(f"{dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{dir}/npz/{idx:05d}.npz", allow_pickle=True)
         matches = data["matches"]
         dmatch_dist = [m[3] for m in matches]
         dmatch_dists += dmatch_dist
@@ -61,24 +61,24 @@ if __name__ == "__main__":
     create_save_directories(result_dir)
     for i, idx in enumerate(tqdm(range(start, last - step, step))):
         img, _ = dataset.load_img(i)
-        data = np.load(f"{result_dir}/npz/{idx:04d}.npz", allow_pickle=True)
+        data = np.load(f"{result_dir}/npz/{idx:05d}.npz", allow_pickle=True)
 
         # Disparities
         if 'disp' in data and not f"{data['disp']}" == "None":
             fig = draw_disparties(data['disp'])
-            fig.savefig(f"{result_dir}/disps/{idx:04d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
+            fig.savefig(f"{result_dir}/disps/{idx:05d}.png", dpi=300, bbox_inches='tight', pad_inches=0)
             plt.close()
 
         # All detected keypoints
         kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"], flag="p")
-        cv2.imwrite(f"{result_dir}/kpts/{idx:04d}.png", kpt_img)
+        cv2.imwrite(f"{result_dir}/kpts/{idx:05d}.png", kpt_img)
 
         # Matchd keypoints
         if i == 0:
             continue
         prev_img, _ = dataset.load_img(i - 1)
         if prev_img is not None:
-            draw_matched_kpts_coloring_distance(img, data["matched_prev_kpts"], data["matched_curr_kpts"], data["matches"], f"{result_dir}/matched_kpts/{idx:04d}.png", dm_dist_range)
+            draw_matched_kpts_coloring_distance(img, data["matched_prev_kpts"], data["matched_curr_kpts"], data["matches"], f"{result_dir}/matched_kpts/{idx:05d}.png", dm_dist_range)
             # match_img = draw_matched_kpts_two_imgs(prev_img, img, data["matched_prev_kpts"], data["matched_curr_kpts"], data["matches"])
             # match_img = draw_matched_kpts(prev_img, data["matched_prev_kpts"], data["matched_curr_kpts"])
-            # cv2.imwrite(f"{result_dir}/matched_kpts/{idx:04d}.png", match_img)
+            # cv2.imwrite(f"{result_dir}/matched_kpts/{idx:05d}.png", match_img)
