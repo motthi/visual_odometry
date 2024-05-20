@@ -23,7 +23,8 @@ def pickup_good_matches(kpts1, kpts2, matches, max_pts_dist) -> list[np.ndarray,
         # TODO: Temporal solution for mismatched keypoints
         pkpt = kpts1[matches[cnt].queryIdx]
         ckpt = kpts2[matches[cnt].trainIdx]
-        if np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > max_pts_dist:
+        # The 1/3 best matches are considered as good matches even though the distance is larger.
+        if cnt > len(matches) / 3 and np.linalg.norm(np.array(pkpt.pt) - np.array(ckpt.pt)) > max_pts_dist:
             continue
         good_pkpts.append(kpts1[matches[cnt].queryIdx])
         good_ckpts.append(kpts2[matches[cnt].trainIdx])
