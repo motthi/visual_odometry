@@ -10,8 +10,8 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 from scipy.spatial.transform import Rotation as R
 
 x_idx = 0
-y_idx = 1
-z_idx = 2
+y_idx = 2
+z_idx = 1
 axis_label = ["x [m]", "y [m]", "z [m]"]
 
 
@@ -70,7 +70,7 @@ def draw_matched_kpts_coloring_distance(
         dist = int(match.distance)
         c = rgb2hex(cmap(norm(dist)))
         c = tuple([int(c[5:7], 16), int(c[3:5], 16), int(c[1:3], 16)])
-        cv2.line(match_img, (int(x1), int(y1)), (int(x2), int(y2)), c, 2)
+        cv2.line(match_img, (int(x1), int(y1)), (int(x2), int(y2)), c, 1)
         cv2.rectangle(match_img, (int(x1) - 1, int(y1) - 1), (int(x1) + 1, int(y1) + 1), (0, 100, 0), -1)
         cv2.circle(match_img, (int(x2), int(y2)), 2, (255, 0, 255), -1)
 
@@ -96,9 +96,9 @@ def draw_matched_kpts_two_imgs(prev_img: np.ndarray, curr_img: np.ndarray, prev_
 
 
 def draw_vo_poses(
-    estimated_poses: np.ndarray,
-    real_poses: np.ndarray,
-    real_img_poses: np.ndarray = None,
+    est_poses: np.ndarray,
+    gt_poses: np.ndarray,
+    gt_img_poses: np.ndarray = None,
     save_src: str = None,
     draw_data: str = "all",
     dim: int = 3,
@@ -111,7 +111,7 @@ def draw_vo_poses(
         fig, ax = plt.subplots()
     else:
         fig, ax = plt.subplots(subplot_kw=dict(projection='3d'))
-    draw_trajectory(ax, estimated_poses, real_img_poses, real_poses, dim, draw_data)
+    draw_trajectory(ax, est_poses, gt_img_poses, gt_poses, dim, draw_data)
 
     if dim == 2:
         ax.set_xlim(xlim) if xlim is not None else None
@@ -169,36 +169,36 @@ def draw_vo_poses_and_quats(
 def draw_trajectory(
     ax: Axes,
     est_poses: np.ndarray,
+    gt_img_poses: np.ndarray,
     gt_poses: np.ndarray,
-    gt_all_poses: np.ndarray,
     dim: int = 3,
     draw_data: str = "all",
     label="Estimated",
 ):
-    e_trans = est_poses[:, :3, 3]
+    est_trans = est_poses[:, :3, 3]
+    gt_img_trans = gt_img_poses[:, :3, 3] if gt_img_poses is not None else None
     gt_trans = gt_poses[:, :3, 3] if gt_poses is not None else None
-    gt_all_trans = gt_all_poses[:, :3, 3] if gt_all_poses is not None else None
     if draw_data == "all" or draw_data == "truth" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(gt_all_trans[0][x_idx], gt_all_trans[0][y_idx], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][x_idx], gt_all_trans[-1][y_idx], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], c='#ff7f0e', label='Truth')
+            ax.plot(gt_trans[0][x_idx], gt_trans[0][y_idx], 'o', c="r", label="Start")
+            ax.plot(gt_trans[-1][x_idx], gt_trans[-1][y_idx], 'x', c="r", label="End")
+            ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], c='#ff7f0e', label='Truth')
         else:
-            ax.plot(gt_all_trans[0][x_idx], gt_all_trans[0][y_idx], gt_all_trans[0][z_idx], 'o', c="r", label="Start")
-            ax.plot(gt_all_trans[-1][x_idx], gt_all_trans[-1][y_idx], gt_all_trans[-1][z_idx], 'x', c="r", label="End")
-            ax.plot(gt_all_trans[:, x_idx], gt_all_trans[:, y_idx], gt_all_trans[:, z_idx], c='#ff7f0e', label='Truth')
+            ax.plot(gt_trans[0][x_idx], gt_trans[0][y_idx], gt_trans[0][z_idx], 'o', c="r", label="Start")
+            ax.plot(gt_trans[-1][x_idx], gt_trans[-1][y_idx], gt_trans[-1][z_idx], 'x', c="r", label="End")
+            ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], gt_trans[:, z_idx], c='#ff7f0e', label='Truth')
     if draw_data == "all" or draw_data == "estimated" or draw_data == "truth_estimated":
         if dim == 2:
-            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], '-o', label=label, markersize=0, linewidth=2.0)
+            ax.plot(est_trans[:, x_idx], est_trans[:, y_idx], '-o', label=label, markersize=0, linewidth=2.0)
         else:
-            ax.plot(e_trans[:, x_idx], e_trans[:, y_idx], e_trans[:, z_idx], '-o', label=label, markersize=2)
+            ax.plot(est_trans[:, x_idx], est_trans[:, y_idx], est_trans[:, z_idx], '-o', label=label, markersize=2)
     if draw_data == "all":
-        if gt_poses is not None:
+        if gt_img_poses is not None:
             if dim == 2:
-                ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], 'o', c='#ff7f0e', markersize=2)
+                ax.plot(gt_img_trans[:, x_idx], gt_img_trans[:, y_idx], 'o', c='#ff7f0e', markersize=2)
             else:
-                ax.plot(gt_trans[:, x_idx], gt_trans[:, y_idx], gt_trans[:, z_idx], 'o', c='#ff7f0e', markersize=2)
-            for e_pos, r_pos in zip(e_trans, gt_trans):
+                ax.plot(gt_img_trans[:, x_idx], gt_img_trans[:, y_idx], gt_img_trans[:, z_idx], 'o', c='#ff7f0e', markersize=2)
+            for e_pos, r_pos in zip(est_trans, gt_img_trans):
                 if dim == 2:
                     ax.plot([e_pos[x_idx], r_pos[x_idx]], [e_pos[y_idx], r_pos[y_idx]], c='r', linewidth=0.3)
                 else:

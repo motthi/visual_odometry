@@ -28,6 +28,7 @@ class VisualOdometry():
         self.left_imgs = imgs
         self.img_mask = img_mask
         self.cnt = 0
+        self.prev_cnt = None
 
         self.left_kpts = []
         self.left_descs = []
@@ -49,6 +50,8 @@ class VisualOdometry():
         self.overall_proc_times = [None]
         self.each_proc_times = [None]
         cur_pose = init_pose
+        self.prev_cnt = 0
+        self.cnt = 1
 
         pbar = tqdm(range(1, last_img_idx), leave=tqdm_leave)
         for idx in pbar:
@@ -61,6 +64,7 @@ class VisualOdometry():
             self.overall_proc_times.append(ptime)
             self.Ts.append(transf)
             poses.append(cur_pose)
+            self.prev_cnt = self.cnt
             self.cnt += 1
 
             pbar.set_description(f"{idx}/{last_img_idx-1} ({ptime:.2f}s)")
@@ -127,8 +131,8 @@ class MonocularVisualOdometry(VisualOdometry):
 
     def estimate_pose(self):
         # Load images
-        left_prev_img = self.load_img(self.cnt)
-        left_curr_img = self.load_img(self.cnt + 1)
+        left_prev_img = self.load_img(self.prev_cnt)
+        left_curr_img = self.load_img(self.cnt)
 
         # Detect and track keypoints
         prev_kpts, curr_kpts, dmatches = self.detect_track_kpts(self.cnt, left_prev_img, left_curr_img)
@@ -256,8 +260,8 @@ class StereoVisualOdometry(VisualOdometry):
         opt_proc_time = 0.0
 
         # Load images
-        left_prev_img, _ = self.load_img(self.cnt)
-        left_curr_img, right_curr_img = self.load_img(self.cnt + 1)
+        left_prev_img, _ = self.load_img(self.prev_cnt)
+        left_curr_img, right_curr_img = self.load_img(self.cnt)
 
         # Calculate disparity
         if self.use_disp:
@@ -272,7 +276,7 @@ class StereoVisualOdometry(VisualOdometry):
 
         # Track keypoints
         s_time = time.time()
-        prev_kpts, curr_kpts, dmatches = self.track_kpts(left_prev_img, left_curr_img, self.left_kpts[self.cnt], self.left_descs[self.cnt], curr_kpts, curr_descs)
+        prev_kpts, curr_kpts, dmatches = self.track_kpts(left_prev_img, left_curr_img, self.left_kpts[self.prev_cnt], self.left_descs[self.prev_cnt], curr_kpts, curr_descs)
         trc_proc_time = time.time() - s_time
 
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
@@ -282,7 +286,7 @@ class StereoVisualOdometry(VisualOdometry):
 
         # Find the corresponding points in the right image
         s_time = time.time()
-        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.cnt], self.disparities[self.cnt + 1], dmatches)
+        prev_kpts, curr_kpts, dmatches, l_prev_pts, r_prev_pts, l_curr_pts, r_curr_pts = self.find_right_kpts(prev_kpts, curr_kpts, self.disparities[self.prev_cnt], self.disparities[self.cnt], dmatches)
         if len(prev_kpts) == 0 or len(curr_kpts) == 0:  # Could not track features
             self.append_kpts_match_info(prev_kpts, curr_kpts, dmatches)
             self.each_proc_times.append({'detect': dtc_proc_time, 'track': trc_proc_time, 'stereo': stereo_proc_time, 'optimization': opt_proc_time})
@@ -341,8 +345,8 @@ class StereoVisualOdometry(VisualOdometry):
             prev_disps, p_mask = get_idxs(prev_kpts, prev_disps)
             curr_disps, c_mask = get_idxs(curr_kpts, curr_disps)
         else:
-            prev_disps, p_mask = get_disps(prev_kpts, self.cnt)
-            curr_disps, c_mask = get_disps(curr_kpts, self.cnt + 1)
+            prev_disps, p_mask = get_disps(prev_kpts, self.prev_cnt)
+            curr_disps, c_mask = get_disps(curr_kpts, self.cnt)
         masks = np.logical_and(p_mask, c_mask)    # Combine the masks
 
         kpt1_l, kpt2_l, disps1_masked, disps2_masked, matches_masked = [], [], [], [], []

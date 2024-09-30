@@ -71,7 +71,9 @@ class ImageDataset():
     def read_all_poses_quats(self):
         raise NotImplementedError
 
-    def save_info(self, src):
+    def save_info(self, src, img_idxes: list = None):
+        if img_idxes is None:
+            img_idxes = [i for i in range(self.start, self.last, self.step)]
         data = {
             'start': self.start,
             'last': self.last,
@@ -89,7 +91,8 @@ class ImageDataset():
                     'extrinsic': self.rcam_params['extrinsic'].tolist(),
                     'projection': self.rcam_params['projection'].tolist()
                 }
-            }
+            },
+            'img_idx': img_idxes
         }
         if 'distortion' in self.lcam_params.keys() and 'distortion' in self.rcam_params.keys():
             data['camera_params']['lcam']['distortion'] = self.lcam_params['distortion'].tolist()

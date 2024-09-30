@@ -7,24 +7,28 @@ from vo.datasets import ImageDataset
 
 
 class AkiDataset(ImageDataset):
-    def __init__(self, dataset_dir: str, start: int = 0, last: int = None, step: int = 1):
+    def __init__(self, dataset_dir: str, start: int = 0, last: int = None, step: int = 1, img_idxes=None):
         super().__init__(dataset_dir, start, last, step)
         self.l_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/left/*.png"))
         self.r_img_srcs = sorted(glob.glob(f"{self.dataset_dir}/right/*.png"))
-        if start < 0:
-            warnings.warn(f"start={start} is negative")
-            start = 0
-        if start > len(self.l_img_srcs):
-            warnings.warn(f"start={start} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
-            start = 0
-        if last is not None and last > len(self.l_img_srcs):
-            warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
-            last = None
-        if last is None or not isinstance(last, numbers.Integral):
-            last = len(self.l_img_srcs)
-            self.last = len(self.l_img_srcs)
-        self.l_img_srcs = self.l_img_srcs[start:last:step]
-        self.r_img_srcs = self.r_img_srcs[start:last:step]
+        if img_idxes:
+            self.l_img_srcs = [self.l_img_srcs[i] for i in img_idxes]
+            self.r_img_srcs = [self.r_img_srcs[i] for i in img_idxes]
+        else:
+            if start < 0:
+                warnings.warn(f"start={start} is negative")
+                start = 0
+            if start > len(self.l_img_srcs):
+                warnings.warn(f"start={start} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+                start = 0
+            if last is not None and last > len(self.l_img_srcs):
+                warnings.warn(f"last={last} is larger than the number of images in the dataset ({len(self.l_img_srcs)})")
+                last = None
+            if last is None or not isinstance(last, numbers.Integral):
+                last = len(self.l_img_srcs)
+                self.last = len(self.l_img_srcs)
+            self.l_img_srcs = self.l_img_srcs[start:last:step]
+            self.r_img_srcs = self.r_img_srcs[start:last:step]
         self.name = "AKI"
 
     def camera_params(self) -> list[dict]:

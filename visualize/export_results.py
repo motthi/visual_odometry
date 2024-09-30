@@ -1,5 +1,6 @@
 import argparse
 import cv2
+import json
 import os
 import numpy as np
 import matplotlib.pyplot as plt
@@ -13,9 +14,9 @@ from tqdm import tqdm
 DATASET_DIR = os.environ['DATASET_DIR']
 
 
-def dmatch_dist_range(dir):
+def dmatch_dist_range(dir, img_idxes):
     dmatch_dists = []
-    for idx in range(start + step, last - step, step):
+    for idx in img_idxes[1:]:
         data = np.load(f"{dir}/npz/{idx:05d}.npz", allow_pickle=True)
         matches = data["matches"]
         dmatch_dist = [m[3] for m in matches]
@@ -33,7 +34,7 @@ if __name__ == "__main__":
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
     result_dir = f"{data_dir}/vo_results/{args.saved_dir}"
 
-    print(args.dataset in ["AKI", "MADMAX"])
+    # print(args.dataset in ["AKI", "MADMAX"])
     if not os.path.exists(f"{data_dir}"):
         print(f"Dataset directory {data_dir} does not exist.")
         exit()
@@ -43,8 +44,14 @@ if __name__ == "__main__":
     start = result_data["start_idx"]
     last = result_data["last_idx"]
 
+    dataset_info = json.load(open(f"{data_dir}/vo_results/{args.saved_dir}/dataset_info.json"))
+    if "img_idx" in dataset_info:
+        img_idxes = dataset_info["img_idx"]
+    else:
+        img_idxes = range(start, last - step, step)
+
     if args.dataset == "AKI":
-        dataset = AkiDataset(data_dir, start=start, last=last, step=step)
+        dataset = AkiDataset(data_dir, start=start, last=last, step=step, img_idxes=img_idxes)
     elif args.dataset == "MADMAX":
         dataset = MadmaxDataset(data_dir, start=start, last=last, step=step)
     elif args.dataset == "KITTI":
@@ -52,14 +59,14 @@ if __name__ == "__main__":
         dataset = KittiDataset(f"{DATASET_DIR}/{args.dataset}", seq, start=start, last=last, step=step)
     dataset.camera_params()
 
-    dm_dist_range = dmatch_dist_range(result_dir)
+    dm_dist_range = dmatch_dist_range(result_dir, img_idxes)
 
     print("Start exporting results...")
     print(f"Dataset directory: {data_dir}")
     print(f"Save directory: {result_dir}")
 
     create_save_directories(result_dir)
-    for i, idx in enumerate(tqdm(range(start, last - step, step))):
+    for i, idx in enumerate(tqdm(img_idxes)):
         img, _ = dataset.load_img(i)
         data = np.load(f"{result_dir}/npz/{idx:05d}.npz", allow_pickle=True)
 
@@ -70,7 +77,7 @@ if __name__ == "__main__":
             plt.close()
 
         # All detected keypoints
-        kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"], flag="p")
+        kpt_img = draw_detected_kpts(img, data["kpts"], data["descs"], flag="p", ps=2)
         cv2.imwrite(f"{result_dir}/kpts/{idx:05d}.png", kpt_img)
 
         # Matchd keypoints
