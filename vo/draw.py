@@ -130,7 +130,8 @@ def draw_vo_poses(
     fig.tight_layout()
     if save_src is not None:
         fig.savefig(save_src, dpi=300, bbox_inches='tight', pad_inches=0)
-        plt.close()
+        # plt.close()
+        plt.show()
     else:
         plt.show()
 

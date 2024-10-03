@@ -46,7 +46,7 @@ if __name__ == "__main__":
 
     dataset_info = json.load(open(f"{data_dir}/vo_results/{args.saved_dir}/dataset_info.json"))
     if "img_idx" in dataset_info:
-        img_idxes = dataset_info["img_idx"]
+        img_idxes = dataset_info["img_idx"][:-1]
     else:
         img_idxes = range(start, last - step, step)
 

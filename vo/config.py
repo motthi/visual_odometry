@@ -33,10 +33,10 @@ class AkiConfigLoader(ConfigLoader):
         descriptor = cv2.ORB_create()
 
         # Tracker
-        max_track_dist = 50
+        max_track_dist = 80
         tracker = BruteForceTracker(max_track_dist, cv2.NORM_HAMMING, cross_check=True)
 
-        D = 50
+        D = 80
         img_mask = np.full(l_img.shape[:2], 255, dtype=np.uint8)
         img_mask[:D, :] = 0     # Y min
         img_mask[-100:, :] = 0  # Y max
@@ -82,12 +82,12 @@ class MadmaxConfigLoader(ConfigLoader):
 
         D = 50
         img_mask = np.full(l_img.shape[:2], 255, dtype=np.uint8)
-        img_mask[:200, :] = 0     # Y min
-        img_mask[-D:, :] = 0  # Y max
-        # img_mask[:D, :] = 0     # Y min   % H-0
-        # img_mask[-100:, :] = 0  # Y max   % H-0
-        img_mask[:, :D] = 0     # X min
-        img_mask[:, -D:] = 0    # X max
+        # img_mask[:200, :] = 0     # Y min
+        # img_mask[-D:, :] = 0  # Y max
+        # # img_mask[:D, :] = 0     # Y min   % H-0
+        # # img_mask[-100:, :] = 0  # Y max   % H-0
+        # img_mask[:, :D] = 0     # X min
+        # img_mask[:, -D:] = 0    # X max
 
         max_iter = 300
         inlier_thd = 0.05
