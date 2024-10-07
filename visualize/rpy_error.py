@@ -12,10 +12,11 @@ if __name__ == "__main__":
     parser.add_argument('dataset', help='Dataset name')
     parser.add_argument('subdir', help='Subdirectory path')
     parser.add_argument('--aligned', action='store_true', help="Use aligned trajectory")
+    parser.add_argument('--saved_dir', help='Save directory', default="test")
     args = parser.parse_args()
 
     data_dir = f"{DATASET_DIR}/{args.dataset}/{args.subdir}"
-    result_dir = f"{data_dir}/vo_results/test"
+    result_dir = f"{data_dir}/vo_results/{args.saved_dir}"
     print(f"Result directory: {result_dir}\n")
 
     if args.aligned:
@@ -24,7 +25,7 @@ if __name__ == "__main__":
         npz_src = f"{result_dir}/vo_result_poses.npz"
     _, est_poses, _, _, _, gt_img_poses = load_result_poses(f"{npz_src}")
 
-    seq = 'ZYX'  # for AKI: 'XYZ', for MADMAX: 'ZYX'
+    seq = 'XYZ'  # for AKI: 'XYZ', for MADMAX: 'ZYX'
     est_rpys = R.from_matrix(est_poses[:, :3, :3]).as_euler(seq, degrees=True)
     gt_img_rpys = R.from_matrix(gt_img_poses[:, :3, :3]).as_euler(seq, degrees=True)
     errors = est_rpys - gt_img_rpys
